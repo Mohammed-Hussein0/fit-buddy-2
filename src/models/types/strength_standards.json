@@ -1,0 +1,838 @@
+{
+  "barbell_bench_press": {
+    "name": "Barbell Bench Press",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      53,
+      73,
+      98,
+      126,
+      156
+    ],
+    "allometric_coeffs": [
+      2.8114,
+      3.8723,
+      5.1984,
+      6.6837,
+      8.275
+    ]
+  },
+  "incline_barbell_bench_press": {
+    "name": "Incline Barbell Bench Press",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      43,
+      60,
+      82,
+      107,
+      134
+    ],
+    "allometric_coeffs": [
+      2.2809,
+      3.1827,
+      4.3497,
+      5.6758,
+      7.108
+    ]
+  },
+  "dumbbell_bench_press": {
+    "name": "Dumbbell Bench Press",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      19,
+      28,
+      40,
+      53,
+      68
+    ],
+    "allometric_coeffs": [
+      1.0079,
+      1.4853,
+      2.1218,
+      2.8114,
+      3.6071
+    ]
+  },
+  "incline_dumbbell_bench_press": {
+    "name": "Incline Dumbbell Bench Press",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      17,
+      25,
+      36,
+      48,
+      61
+    ],
+    "allometric_coeffs": [
+      0.9018,
+      1.3261,
+      1.9096,
+      2.5462,
+      3.2357
+    ]
+  },
+  "chest_fly_machine": {
+    "name": "Machine Chest Fly (Pec Deck)",
+    "weight_type": "machine_stack",
+    "unit_label": "Machine Stack Weight (kg)",
+    "tiers_80kg_male": [
+      37,
+      57,
+      85,
+      118,
+      154
+    ],
+    "allometric_coeffs": [
+      1.9627,
+      3.0236,
+      4.5088,
+      6.2593,
+      8.1689
+    ]
+  },
+  "cable_crossover": {
+    "name": "Cable Crossover",
+    "weight_type": "per_cable_handle",
+    "unit_label": "Weight Per Cable Handle (kg)",
+    "tiers_80kg_male": [
+      12,
+      20,
+      31,
+      44,
+      58
+    ],
+    "allometric_coeffs": [
+      0.6365,
+      1.0609,
+      1.6444,
+      2.334,
+      3.0766
+    ]
+  },
+  "dips": {
+    "name": "Dips",
+    "weight_type": "bodyweight_added",
+    "unit_label": "Total System Weight (BW + Added Weight) (kg)",
+    "tiers_80kg_male": [
+      65,
+      80,
+      96,
+      118,
+      142
+    ],
+    "allometric_coeffs": [
+      3.4479,
+      4.2436,
+      5.0923,
+      6.2593,
+      7.5324
+    ]
+  },
+  "deadlift": {
+    "name": "Barbell Deadlift",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      78,
+      110,
+      150,
+      195,
+      243
+    ],
+    "allometric_coeffs": [
+      4.1375,
+      5.835,
+      7.9568,
+      10.3438,
+      12.8899
+    ]
+  },
+  "pullups": {
+    "name": "Pull-Up",
+    "weight_type": "bodyweight_added",
+    "unit_label": "Total System Weight (BW + Added Weight) (kg)",
+    "tiers_80kg_male": [
+      65,
+      80,
+      95,
+      115,
+      138
+    ],
+    "allometric_coeffs": [
+      3.4479,
+      4.2436,
+      5.0393,
+      6.1002,
+      7.3202
+    ]
+  },
+  "barbell_row": {
+    "name": "Barbell Row",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      45,
+      63,
+      86,
+      112,
+      140
+    ],
+    "allometric_coeffs": [
+      2.387,
+      3.3418,
+      4.5619,
+      5.941,
+      7.4263
+    ]
+  },
+  "seated_cable_row": {
+    "name": "Seated Cable Row",
+    "weight_type": "cable_stack",
+    "unit_label": "Cable Stack Weight (kg)",
+    "tiers_80kg_male": [
+      42,
+      62,
+      86,
+      113,
+      142
+    ],
+    "allometric_coeffs": [
+      2.2279,
+      3.2888,
+      4.5619,
+      5.9941,
+      7.5324
+    ]
+  },
+  "lat_pulldown": {
+    "name": "Lat Pulldown",
+    "weight_type": "cable_stack",
+    "unit_label": "Cable Stack Weight (kg)",
+    "tiers_80kg_male": [
+      41,
+      60,
+      84,
+      110,
+      138
+    ],
+    "allometric_coeffs": [
+      2.1748,
+      3.1827,
+      4.4558,
+      5.835,
+      7.3202
+    ]
+  },
+  "t_bar_row": {
+    "name": "T-Bar Row",
+    "weight_type": "total_barbell",
+    "unit_label": "Plates on Bar (kg)",
+    "tiers_80kg_male": [
+      35,
+      55,
+      80,
+      108,
+      138
+    ],
+    "allometric_coeffs": [
+      1.8566,
+      2.9175,
+      4.2436,
+      5.7289,
+      7.3202
+    ]
+  },
+  "dumbbell_row": {
+    "name": "One-Arm Dumbbell Row",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      18,
+      28,
+      42,
+      58,
+      75
+    ],
+    "allometric_coeffs": [
+      0.9548,
+      1.4853,
+      2.2279,
+      3.0766,
+      3.9784
+    ]
+  },
+  "hyperextensions": {
+    "name": "Hyperextensions",
+    "weight_type": "bodyweight_added",
+    "unit_label": "Added Weight Held (kg)",
+    "tiers_80kg_male": [
+      10,
+      20,
+      32,
+      48,
+      65
+    ],
+    "allometric_coeffs": [
+      0.5305,
+      1.0609,
+      1.6974,
+      2.5462,
+      3.4479
+    ]
+  },
+  "overhead_press": {
+    "name": "Overhead Press (Standing Barbell)",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      33,
+      47,
+      64,
+      84,
+      105
+    ],
+    "allometric_coeffs": [
+      1.7505,
+      2.4931,
+      3.3949,
+      4.4558,
+      5.5697
+    ]
+  },
+  "dumbbell_shoulder_press": {
+    "name": "Dumbbell Shoulder Press",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      14,
+      21,
+      31,
+      42,
+      54
+    ],
+    "allometric_coeffs": [
+      0.7426,
+      1.1139,
+      1.6444,
+      2.2279,
+      2.8644
+    ]
+  },
+  "dumbbell_lateral_raise": {
+    "name": "Dumbbell Lateral Raise",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      6,
+      10,
+      16,
+      23,
+      31
+    ],
+    "allometric_coeffs": [
+      0.3183,
+      0.5305,
+      0.8487,
+      1.22,
+      1.6444
+    ]
+  },
+  "cable_lateral_raise": {
+    "name": "Cable Lateral Raise",
+    "weight_type": "per_cable_handle",
+    "unit_label": "Weight Per Cable Handle (kg)",
+    "tiers_80kg_male": [
+      5,
+      8,
+      13,
+      19,
+      26
+    ],
+    "allometric_coeffs": [
+      0.2652,
+      0.4244,
+      0.6896,
+      1.0079,
+      1.3792
+    ]
+  },
+  "rear_delt_fly": {
+    "name": "Rear Delt Fly",
+    "weight_type": "per_cable_handle",
+    "unit_label": "Weight Per Handle / Dumbbell (kg)",
+    "tiers_80kg_male": [
+      6,
+      10,
+      16,
+      23,
+      31
+    ],
+    "allometric_coeffs": [
+      0.3183,
+      0.5305,
+      0.8487,
+      1.22,
+      1.6444
+    ]
+  },
+  "barbell_shrugs": {
+    "name": "Barbell Shrugs",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      60,
+      90,
+      130,
+      175,
+      225
+    ],
+    "allometric_coeffs": [
+      3.1827,
+      4.7741,
+      6.8959,
+      9.2829,
+      11.9351
+    ]
+  },
+  "barbell_curl": {
+    "name": "Barbell Bicep Curl",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      21,
+      32,
+      46,
+      63,
+      81
+    ],
+    "allometric_coeffs": [
+      1.1139,
+      1.6974,
+      2.4401,
+      3.3418,
+      4.2966
+    ]
+  },
+  "dumbbell_bicep_curl": {
+    "name": "Dumbbell Bicep Curl",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      9,
+      14,
+      21,
+      30,
+      39
+    ],
+    "allometric_coeffs": [
+      0.4774,
+      0.7426,
+      1.1139,
+      1.5914,
+      2.0688
+    ]
+  },
+  "incline_dumbbell_curl": {
+    "name": "Incline Dumbbell Curl",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      8,
+      12,
+      18,
+      26,
+      35
+    ],
+    "allometric_coeffs": [
+      0.4244,
+      0.6365,
+      0.9548,
+      1.3792,
+      1.8566
+    ]
+  },
+  "hammer_curl": {
+    "name": "Hammer Curl",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      10,
+      16,
+      24,
+      34,
+      44
+    ],
+    "allometric_coeffs": [
+      0.5305,
+      0.8487,
+      1.2731,
+      1.8035,
+      2.334
+    ]
+  },
+  "preacher_curl": {
+    "name": "Preacher Curl",
+    "weight_type": "total_barbell",
+    "unit_label": "Barbell / EZ-Bar Total (kg)",
+    "tiers_80kg_male": [
+      19,
+      29,
+      42,
+      58,
+      75
+    ],
+    "allometric_coeffs": [
+      1.0079,
+      1.5383,
+      2.2279,
+      3.0766,
+      3.9784
+    ]
+  },
+  "cable_bicep_curl": {
+    "name": "Cable Bicep Curl",
+    "weight_type": "cable_stack",
+    "unit_label": "Cable Stack Weight (kg)",
+    "tiers_80kg_male": [
+      20,
+      31,
+      45,
+      61,
+      79
+    ],
+    "allometric_coeffs": [
+      1.0609,
+      1.6444,
+      2.387,
+      3.2357,
+      4.1906
+    ]
+  },
+  "tricep_push_down": {
+    "name": "Tricep Pushdown",
+    "weight_type": "cable_stack",
+    "unit_label": "Cable Stack Weight (kg)",
+    "tiers_80kg_male": [
+      25,
+      38,
+      55,
+      74,
+      95
+    ],
+    "allometric_coeffs": [
+      1.3261,
+      2.0157,
+      2.9175,
+      3.9253,
+      5.0393
+    ]
+  },
+  "skull_crushers": {
+    "name": "Skull Crushers",
+    "weight_type": "total_barbell",
+    "unit_label": "EZ-Bar Total (kg)",
+    "tiers_80kg_male": [
+      21,
+      32,
+      46,
+      63,
+      81
+    ],
+    "allometric_coeffs": [
+      1.1139,
+      1.6974,
+      2.4401,
+      3.3418,
+      4.2966
+    ]
+  },
+  "overhead_tricep_extension": {
+    "name": "Overhead Tricep Extension",
+    "weight_type": "cable_stack",
+    "unit_label": "Weight on Cable or Dumbbell (kg)",
+    "tiers_80kg_male": [
+      18,
+      28,
+      42,
+      58,
+      75
+    ],
+    "allometric_coeffs": [
+      0.9548,
+      1.4853,
+      2.2279,
+      3.0766,
+      3.9784
+    ]
+  },
+  "close_grip_bench_press": {
+    "name": "Close Grip Bench Press",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      46,
+      65,
+      89,
+      116,
+      145
+    ],
+    "allometric_coeffs": [
+      2.4401,
+      3.4479,
+      4.721,
+      6.1532,
+      7.6915
+    ]
+  },
+  "barbell_squat": {
+    "name": "Barbell Squat",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      68,
+      97,
+      133,
+      174,
+      218
+    ],
+    "allometric_coeffs": [
+      3.6071,
+      5.1454,
+      7.055,
+      9.2298,
+      11.5638
+    ]
+  },
+  "leg_press": {
+    "name": "Leg Press",
+    "weight_type": "sled_weight",
+    "unit_label": "Total Sled / Plate Weight (kg)",
+    "tiers_80kg_male": [
+      120,
+      180,
+      260,
+      360,
+      475
+    ],
+    "allometric_coeffs": [
+      6.3654,
+      9.5481,
+      13.7917,
+      19.0962,
+      25.1964
+    ]
+  },
+  "hack_squat": {
+    "name": "Hack Squat",
+    "weight_type": "sled_weight",
+    "unit_label": "Total Sled / Plate Weight (kg)",
+    "tiers_80kg_male": [
+      75,
+      115,
+      165,
+      225,
+      290
+    ],
+    "allometric_coeffs": [
+      3.9784,
+      6.1002,
+      8.7524,
+      11.9351,
+      15.3831
+    ]
+  },
+  "leg_extension": {
+    "name": "Leg Extension",
+    "weight_type": "machine_stack",
+    "unit_label": "Machine Stack Weight (kg)",
+    "tiers_80kg_male": [
+      45,
+      70,
+      100,
+      135,
+      175
+    ],
+    "allometric_coeffs": [
+      2.387,
+      3.7132,
+      5.3045,
+      7.1611,
+      9.2829
+    ]
+  },
+  "leg_curl": {
+    "name": "Leg Curl",
+    "weight_type": "machine_stack",
+    "unit_label": "Machine Stack Weight (kg)",
+    "tiers_80kg_male": [
+      35,
+      55,
+      80,
+      110,
+      145
+    ],
+    "allometric_coeffs": [
+      1.8566,
+      2.9175,
+      4.2436,
+      5.835,
+      7.6915
+    ]
+  },
+  "romanian_deadlift": {
+    "name": "Romanian Deadlift",
+    "weight_type": "total_barbell",
+    "unit_label": "Total Barbell + Plates (kg)",
+    "tiers_80kg_male": [
+      65,
+      95,
+      135,
+      180,
+      230
+    ],
+    "allometric_coeffs": [
+      3.4479,
+      5.0393,
+      7.1611,
+      9.5481,
+      12.2004
+    ]
+  },
+  "bulgarian_split_squat": {
+    "name": "Bulgarian Split Squat",
+    "weight_type": "per_dumbbell",
+    "unit_label": "Weight Per Single Dumbbell (kg)",
+    "tiers_80kg_male": [
+      10,
+      16,
+      25,
+      36,
+      48
+    ],
+    "allometric_coeffs": [
+      0.5305,
+      0.8487,
+      1.3261,
+      1.9096,
+      2.5462
+    ]
+  },
+  "standing_calf_raise": {
+    "name": "Standing Calf Raise",
+    "weight_type": "machine_stack",
+    "unit_label": "Machine Stack Weight (kg)",
+    "tiers_80kg_male": [
+      50,
+      85,
+      130,
+      185,
+      245
+    ],
+    "allometric_coeffs": [
+      2.6523,
+      4.5088,
+      6.8959,
+      9.8133,
+      12.996
+    ]
+  },
+  "seated_calf_raise": {
+    "name": "Seated Calf Raise",
+    "weight_type": "machine_stack",
+    "unit_label": "Machine Stack / Plate Weight (kg)",
+    "tiers_80kg_male": [
+      25,
+      40,
+      60,
+      85,
+      115
+    ],
+    "allometric_coeffs": [
+      1.3261,
+      2.1218,
+      3.1827,
+      4.5088,
+      6.1002
+    ]
+  },
+  "cable_crunch": {
+    "name": "Cable Crunch",
+    "weight_type": "cable_stack",
+    "unit_label": "Cable Stack Weight (kg)",
+    "tiers_80kg_male": [
+      35,
+      55,
+      80,
+      110,
+      140
+    ],
+    "allometric_coeffs": [
+      1.8566,
+      2.9175,
+      4.2436,
+      5.835,
+      7.4263
+    ]
+  },
+  "plank": {
+    "name": "Plank Hold (seconds)",
+    "weight_type": "time_seconds",
+    "unit_label": "Hold Time (seconds)",
+    "tiers_80kg_male": [
+      45,
+      75,
+      120,
+      180,
+      240
+    ],
+    "allometric_coeffs": [
+      2.387,
+      3.9784,
+      6.3654,
+      9.5481,
+      12.7308
+    ]
+  },
+  "crunches": {
+    "name": "Crunches (added weight or reps)",
+    "weight_type": "bodyweight_added",
+    "unit_label": "Reps or Added Plate Weight (kg)",
+    "tiers_80kg_male": [
+      10,
+      20,
+      35,
+      50,
+      70
+    ],
+    "allometric_coeffs": [
+      0.5305,
+      1.0609,
+      1.8566,
+      2.6523,
+      3.7132
+    ]
+  },
+  "hanging_leg_raise": {
+    "name": "Hanging Leg Raise",
+    "weight_type": "bodyweight_added",
+    "unit_label": "Reps or Added Dumbbell Weight (kg)",
+    "tiers_80kg_male": [
+      5,
+      10,
+      18,
+      28,
+      40
+    ],
+    "allometric_coeffs": [
+      0.2652,
+      0.5305,
+      0.9548,
+      1.4853,
+      2.1218
+    ]
+  }
+}
