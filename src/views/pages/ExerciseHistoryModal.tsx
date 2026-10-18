@@ -7,6 +7,7 @@ import { EXERCISE_LABELS, EXERCISE_IMAGES, ExerciseId, LibraryExercise } from '.
 import { ExerciseMediaService } from '../../models/services/ExerciseMediaService';
 import { TIER_LABELS, TIER_COLORS, Tier, getPercentileColor } from '../../models/types/StrengthStandards';
 import { calculateLifterPercentile, calculateEpley1RM } from '../../models/services/StrengthEngine';
+import { preventMinusKeyDown, sanitizePositiveNumber } from '../../utils/numberInputUtils';
 import { ArrowUpCircle, Trophy, Dumbbell, Target, Check, Shield, Users, Activity, Play, ExternalLink, RotateCw, BookOpen, Video } from 'lucide-react';
 
 interface ExerciseHistoryModalProps {
@@ -53,18 +54,18 @@ export function ExerciseHistoryModal({
     return () => clearInterval(interval);
   }, [isAutoPlaying, images.length]);
 
-  const defaultBW = userDemographic?.currentWeight || 78.5;
-  const defaultAge = userDemographic?.age || 25;
+  const defaultBW = userDemographic?.currentWeight || 0;
+  const defaultAge = userDemographic?.age || 0;
   const defaultGender = userDemographic?.gender || 'Male';
 
   // Interactive 1RM Benchmarking states
   const [testWeight, setTestWeight] = useState<string>(
-    exerciseStats.latest1RM > 0 ? String(exerciseStats.latest1RM) : '80'
+    exerciseStats.latest1RM > 0 ? String(exerciseStats.latest1RM) : ''
   );
   const [testReps, setTestReps] = useState<string>('1');
   const [inputMode, setInputMode] = useState<'direct' | 'reps'>('direct');
-  const [customBW, setCustomBW] = useState<string>(String(defaultBW));
-  const [customAge, setCustomAge] = useState<string>(String(defaultAge));
+  const [customBW, setCustomBW] = useState<string>(defaultBW > 0 ? String(defaultBW) : '');
+  const [customAge, setCustomAge] = useState<string>(defaultAge > 0 ? String(defaultAge) : '');
   const [customGender, setCustomGender] = useState<string>(defaultGender);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -449,9 +450,11 @@ export function ExerciseHistoryModal({
                 </label>
                 <input
                   type="number"
+                  min="0"
                   step="0.5"
                   value={testWeight}
-                  onChange={(e) => setTestWeight(e.target.value)}
+                  onKeyDown={preventMinusKeyDown}
+                  onChange={(e) => setTestWeight(sanitizePositiveNumber(e.target.value, true))}
                   className="w-full bg-[#18181b] border border-[#333338] px-3.5 py-2.5 text-base font-black text-white focus:outline-none focus:border-[#dc2626]"
                   placeholder="e.g. 100"
                 />
@@ -465,9 +468,11 @@ export function ExerciseHistoryModal({
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="0.5"
                     value={testWeight}
-                    onChange={(e) => setTestWeight(e.target.value)}
+                    onKeyDown={preventMinusKeyDown}
+                    onChange={(e) => setTestWeight(sanitizePositiveNumber(e.target.value, true))}
                     className="w-full bg-[#18181b] border border-[#333338] px-3.5 py-2.5 text-base font-black text-white focus:outline-none focus:border-[#dc2626]"
                     placeholder="e.g. 85"
                   />
@@ -481,7 +486,8 @@ export function ExerciseHistoryModal({
                     min="1"
                     max="30"
                     value={testReps}
-                    onChange={(e) => setTestReps(e.target.value)}
+                    onKeyDown={preventMinusKeyDown}
+                    onChange={(e) => setTestReps(sanitizePositiveNumber(e.target.value, false))}
                     className="w-full bg-[#18181b] border border-[#333338] px-3.5 py-2.5 text-base font-black text-white focus:outline-none focus:border-[#dc2626]"
                     placeholder="e.g. 6"
                   />
@@ -519,8 +525,10 @@ export function ExerciseHistoryModal({
                   </label>
                   <input
                     type="number"
+                    min="0"
                     value={customAge}
-                    onChange={(e) => setCustomAge(e.target.value)}
+                    onKeyDown={preventMinusKeyDown}
+                    onChange={(e) => setCustomAge(sanitizePositiveNumber(e.target.value, false))}
                     className="w-full bg-[#18181b] border border-[#333338] px-3 py-2.5 text-xs sm:text-sm font-black text-white focus:outline-none"
                   />
                 </div>
@@ -530,9 +538,11 @@ export function ExerciseHistoryModal({
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="0.5"
                     value={customBW}
-                    onChange={(e) => setCustomBW(e.target.value)}
+                    onKeyDown={preventMinusKeyDown}
+                    onChange={(e) => setCustomBW(sanitizePositiveNumber(e.target.value, true))}
                     className="w-full bg-[#18181b] border border-[#333338] px-3 py-2.5 text-xs sm:text-sm font-black text-white focus:outline-none"
                   />
                 </div>

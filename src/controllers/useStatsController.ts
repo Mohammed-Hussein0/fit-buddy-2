@@ -35,8 +35,8 @@ export function useStatsController(userId?: string) {
   const [mechanicsFilter, setMechanicsFilter] = useState<'All' | 'Compound' | 'Isolation'>('All');
   const [onlyLoggedFilter, setOnlyLoggedFilter] = useState(false);
 
-  const bw = parseFloat(profile.currentWeight) || 78.5;
-  const age = parseInt(profile.age, 10) || 25;
+  const bw = parseFloat(profile.currentWeight) || 0;
+  const age = parseInt(profile.age, 10) || 0;
   const gender = profile.gender;
 
   // 1. Weekly Volume distribution

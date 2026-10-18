@@ -15,12 +15,23 @@ export function useAuthController() {
   const updateAvatar = useAuthStore((s) => s.updateAvatar);
   const setError = useAuthStore((s) => s.setError);
 
+  const needsOnboarding = useAuthStore((s) => s.needsOnboarding);
+  const onboardingLoading = useAuthStore((s) => s.onboardingLoading);
+  const onboardingError = useAuthStore((s) => s.onboardingError);
+  const completeOnboarding = useAuthStore((s) => s.completeOnboarding);
+  const checkBackendProfile = useAuthStore((s) => s.checkBackendProfile);
+
   return {
     user,
     loading,
     error,
+    needsOnboarding,
+    onboardingLoading,
+    onboardingError,
     signIn,
     signUp,
+    completeOnboarding,
+    checkBackendProfile,
     signOut,
     setDemoUser,
     updateAvatar,

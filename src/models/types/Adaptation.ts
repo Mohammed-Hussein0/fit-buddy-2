@@ -59,6 +59,7 @@ export interface ProgramDay {
   day_id: string;
   day_title: string;
   exercises: AdaptedExercise[];
+  muscles_targeted?: string[];
 }
 
 export interface ProgramAdaptationRequest {

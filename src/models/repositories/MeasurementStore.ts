@@ -10,46 +10,10 @@ interface MeasurementState {
   saveMeasurement: (entry: BodyMeasurement) => Promise<boolean>;
   removeMeasurement: (date: string) => Promise<boolean>;
   fetchMeasurements: () => Promise<void>;
+  resetMeasurements: () => void;
 }
 
-const DEFAULT_MEASUREMENTS: BodyMeasurement[] = [
-  {
-    date: '2026-09-18',
-    shoulders_cm: 122.5,
-    chest_cm: 104.0,
-    waist_cm: 80.5,
-    arm_cm: 38.5,
-    neck_cm: 39.5,
-    hip_cm: 95.0,
-    thigh_cm: 59.5,
-    calf_cm: 38.0,
-    notes: 'Morning tape check-in fasted. Waist down 0.5cm, shoulder breadth up.',
-  },
-  {
-    date: '2026-09-04',
-    shoulders_cm: 121.0,
-    chest_cm: 102.5,
-    waist_cm: 81.5,
-    arm_cm: 38.0,
-    neck_cm: 39.5,
-    hip_cm: 95.5,
-    thigh_cm: 59.0,
-    calf_cm: 38.0,
-    notes: 'Post-workout measurement. Delts pumped.',
-  },
-  {
-    date: '2026-08-20',
-    shoulders_cm: 119.5,
-    chest_cm: 101.0,
-    waist_cm: 82.5,
-    arm_cm: 37.2,
-    neck_cm: 39.0,
-    hip_cm: 96.0,
-    thigh_cm: 58.5,
-    calf_cm: 37.5,
-    notes: 'Initial mesocycle baseline.',
-  },
-];
+const DEFAULT_MEASUREMENTS: BodyMeasurement[] = [];
 
 export const useMeasurementStore = create<MeasurementState>()(
   persist(
@@ -58,11 +22,13 @@ export const useMeasurementStore = create<MeasurementState>()(
       isLoading: false,
       error: null,
 
+      resetMeasurements: () => set({ measurements: [] }),
+
       fetchMeasurements: async () => {
         set({ isLoading: true, error: null });
         try {
           const remote = await ApiClient.getMeasurements();
-          if (Array.isArray(remote) && remote.length > 0) {
+          if (Array.isArray(remote)) {
             set({ measurements: remote, isLoading: false });
             return;
           }

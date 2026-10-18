@@ -1,5 +1,6 @@
 import { supabase } from '../repositories/SupabaseRepo';
 import { BodyMeasurement } from '../types/Measurement';
+import { WorkoutSession } from '../types/WorkoutHistory';
 import {
   AdaptationRequest,
   AdaptationResponse,
@@ -13,7 +14,7 @@ import {
  * it points to the same host on port 8000.
  */
 function getApiBaseUrl(): string {
-  if (import.meta.env.VITE_API_BASE_URL) {
+  if (import.meta.env?.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
   if (typeof window !== 'undefined' && window.location.hostname) {
@@ -21,6 +22,82 @@ function getApiBaseUrl(): string {
     return `http://${host}:8000/api`;
   }
   return 'http://localhost:8000/api';
+}
+
+function formatApiError(err: any, fallback: string): string {
+  if (!err) return fallback;
+  let msg = '';
+  if (typeof err === 'string') {
+    msg = err;
+  } else if (typeof err.detail === 'string') {
+    msg = err.detail;
+  } else if (Array.isArray(err.detail)) {
+    msg = err.detail
+      .map((item: any) => {
+        if (typeof item === 'string') return item;
+        const loc = item.loc ? item.loc.filter((x: any) => x !== 'body').join('.') : '';
+        return loc ? `${loc}: ${item.msg}` : item.msg;
+      })
+      .filter(Boolean)
+      .join(', ');
+  } else if (typeof err.message === 'string') {
+    msg = err.message;
+  } else {
+    try {
+      msg = JSON.stringify(err.detail || err);
+    } catch {
+      msg = fallback;
+    }
+  }
+
+  // If the error message embeds raw JSON from an upstream API, extract the innermost human message
+  if (msg && msg.includes('{')) {
+    const jsonMatch = msg.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed?.error?.message) {
+          msg = parsed.error.message;
+        } else if (parsed?.detail && typeof parsed.detail === 'string') {
+          msg = parsed.detail;
+        }
+      } catch {
+        // keep msg
+      }
+    }
+  }
+
+  const lower = (msg || '').toLowerCase();
+  if (
+    lower.includes('high demand') ||
+    lower.includes('spikes in demand') ||
+    lower.includes('503') ||
+    lower.includes('unavailable')
+  ) {
+    return 'The AI vision service is currently experiencing high demand. Please try again in a few moments.';
+  }
+  if (lower.includes('rate limit') || lower.includes('resource_exhausted') || lower.includes('429')) {
+    return 'The AI service is receiving too many requests. Please wait a few seconds before trying again.';
+  }
+  if (lower.includes('bad gateway') || lower.includes('502') || lower.includes('econnrefused')) {
+    return 'The AI vision service is temporarily unavailable. Please try again shortly.';
+  }
+
+  // Safety filter: ensure no JSON structure leaks into UI text
+  if (msg.includes('{') || msg.includes('}') || msg.includes('detail')) {
+    return 'The AI vision service is currently experiencing high demand. Please try again in a few moments.';
+  }
+
+  return msg || fallback;
+}
+
+export interface SavedPhysiqueAnalysis {
+  id: string;
+  summary: string;
+  strong_muscles: string[];
+  lacking_muscles: { muscle: string; reason: string }[];
+  advice: { exercise: string; cue: string }[];
+  created_at: string;
 }
 
 class ApiClientService {
@@ -66,9 +143,9 @@ class ApiClientService {
   }
 
   /**
-   * Send physique photos to backend Claude 3.5 Sonnet analysis endpoint.
+   * Send physique photos to backend analysis endpoint.
    */
-  async analyzePhysique(frontFile: File | Blob, backFile: File | Blob): Promise<string> {
+  async analyzePhysique(frontFile: File | Blob, backFile: File | Blob): Promise<SavedPhysiqueAnalysis> {
     const formData = new FormData();
     formData.append('front', frontFile, 'front.jpg');
     formData.append('back', backFile, 'back.jpg');
@@ -82,11 +159,48 @@ class ApiClientService {
     });
 
     if (!res.ok) {
-      const errorText = await res.text().catch(() => res.statusText);
-      throw new Error(`Analysis failed (${res.status}): ${errorText}`);
+      const err = await res.json().catch(async () => {
+        const text = await res.text().catch(() => '');
+        return { detail: text };
+      });
+      throw new Error(formatApiError(err, `Analysis failed (${res.status})`));
     }
 
-    return await res.text();
+    return await res.json();
+  }
+
+  /**
+   * Retrieve the user's latest saved physique analysis from the backend.
+   */
+  async getLatestAnalysis(): Promise<SavedPhysiqueAnalysis | null> {
+    try {
+      const headers = await this.getHeaders();
+      const res = await fetch(`${this.baseUrl}/analysis/latest`, {
+        method: 'GET',
+        headers,
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Retrieve physique analysis history from the backend.
+   */
+  async getAnalysisHistory(limit: number = 10): Promise<SavedPhysiqueAnalysis[]> {
+    try {
+      const headers = await this.getHeaders();
+      const res = await fetch(`${this.baseUrl}/analysis/history?limit=${limit}`, {
+        method: 'GET',
+        headers,
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -129,6 +243,134 @@ class ApiClientService {
     }
 
     return await res.json();
+  }
+
+  // ---------------------------------------------------------------------------
+  // User Profile (/api/users/profile)
+  // ---------------------------------------------------------------------------
+
+
+  async getProfile(): Promise<any | null> {
+    const headers = await this.getHeaders();
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/users/profile`, {
+        method: 'GET',
+        headers,
+      });
+    } catch (err: any) {
+      throw new Error(`Cannot connect to FitBuddy backend server: ${err?.message || 'Server offline'}`);
+    }
+
+    if (res.status === 404) {
+      return null;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(formatApiError(err, `Backend profile error (${res.status})`));
+    }
+    return await res.json();
+  }
+
+  async createProfile(data: {
+    username: string;
+    birth_date: string;
+    gender: string;
+    height: number;
+    goal_weight: number;
+    experience_level?: string;
+    current_weight?: number;
+    avatar_url?: string;
+  }): Promise<any> {
+    const headers = await this.getHeaders('application/json');
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/users/profile`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+    } catch (err: any) {
+      throw new Error(`Cannot connect to FitBuddy backend server: ${err?.message || 'Server offline'}`);
+    }
+
+    if (res.status === 409 || res.status === 400) {
+      const err = await res.json().catch(() => null);
+      if (err?.detail && typeof err.detail === 'string' && err.detail.toLowerCase().includes('already exists')) {
+        const existing = await this.getProfile();
+        if (existing) return existing;
+      }
+      throw new Error(formatApiError(err, 'Failed to create profile'));
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(formatApiError(err, 'Failed to create profile'));
+    }
+    return await res.json();
+  }
+
+  async updateProfile(data: Record<string, any>): Promise<any> {
+    const headers = await this.getHeaders('application/json');
+    const res = await fetch(`${this.baseUrl}/users/profile`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(formatApiError(err, 'Failed to update profile'));
+    }
+    return await res.json();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Weight Logs (/api/weight-logs)
+  // ---------------------------------------------------------------------------
+
+  async getWeightLogs(limit: number = 50): Promise<{ date: string; weight: number }[]> {
+    try {
+      const headers = await this.getHeaders();
+      const res = await fetch(`${this.baseUrl}/weight-logs?limit=${limit}`, {
+        method: 'GET',
+        headers,
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const items = data.items || [];
+      return items.map((it: any) => ({
+        date: it.date,
+        weight: parseFloat(it.weight_kg),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async logWeight(weightKg: number, date?: string): Promise<any> {
+    try {
+      const headers = await this.getHeaders('application/json');
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      const res = await fetch(`${this.baseUrl}/weight-logs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: targetDate,
+          weight_kg: weightKg,
+        }),
+      });
+      if (res.status === 409) {
+        return await fetch(`${this.baseUrl}/weight-logs/${targetDate}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ weight_kg: weightKg }),
+        }).then((r) => r.json());
+      }
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -261,6 +503,90 @@ class ApiClientService {
     return await res.json();
   }
 
+  async getWorkoutHistory(limit = 50, fromDate?: string, toDate?: string, exerciseId?: number): Promise<WorkoutSession[]> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (fromDate) params.append('from_date', fromDate);
+    if (toDate) params.append('to_date', toDate);
+    if (exerciseId) params.append('exercise_id', exerciseId.toString());
+
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const headers = await this.getHeaders();
+    const res = await fetch(`${this.baseUrl}/workout-sets/history${qs}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.detail || 'Failed to fetch workout history');
+    }
+    const raw = await res.json();
+    return (raw || []).map((item: any) => ({
+      id: String(item.id),
+      workoutId: item.workout_id || item.workoutId || '',
+      workoutTitle: item.workout_title || item.workoutTitle || 'Workout',
+      date: item.date,
+      totalVolume: Number(item.total_volume ?? item.totalVolume ?? 0),
+      muscle_sets: item.muscle_sets || {},
+      exercises: (item.exercises || []).map((e: any) => ({
+        exerciseId: e.exercise_id || e.exerciseId,
+        exerciseName: e.exercise_name || e.exerciseName,
+        muscleGroup: e.muscle_group || e.muscleGroup,
+        primaryMuscles: e.primary_muscles || e.primaryMuscles || [],
+        secondaryMuscles: e.secondary_muscles || e.secondaryMuscles || [],
+        bestEpley1RM: Number(e.best_epley_1rm ?? e.bestEpley1RM ?? 0),
+        totalVolume: Number(e.total_volume ?? e.totalVolume ?? 0),
+        sets: (e.sets || []).map((s: any) => ({
+          set_number: s.set_number ?? s.setNumber ?? 1,
+          weight: Number(s.weight ?? 0),
+          reps: Number(s.reps ?? 0),
+          rpe: s.rpe ? Number(s.rpe) : 0,
+          is_warmup: Boolean(s.is_warmup),
+          calculated_1rm: s.calculated_1rm ? Number(s.calculated_1rm) : undefined,
+        })),
+      })),
+    }));
+  }
+
+  async getRecentSessions(days = 4): Promise<{
+    session_id: string;
+    date: string;
+    days_ago: number;
+    workout_title: string;
+    muscle_sets: Record<string, number>;
+  }[]> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${this.baseUrl}/workout-sets/recent-sessions?days=${days}`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  }
+
+  async getPersonalRecords(): Promise<{
+    exercise_id: number;
+    exercise_key: string;
+    exercise_name: string;
+    primary_muscle: string;
+    best_1rm?: number;
+    best_1rm_weight_kg?: number;
+    best_1rm_reps?: number;
+    best_1rm_date?: string;
+    best_weight_kg?: number;
+    best_weight_reps?: number;
+    best_weight_date?: string;
+    best_volume_kg?: number;
+    updated_at: string;
+  }[]> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${this.baseUrl}/workout-sets/personal-records`, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  }
 
   async getWorkoutNotes(fromDate?: string, toDate?: string): Promise<any[]> {
     const params = new URLSearchParams();

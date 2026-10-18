@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { analyzePhysiquePhotos } from '../models/services/PhysiqueAIService';
-import { ApiClient } from '../models/services/ApiClient';
+import { ApiClient, SavedPhysiqueAnalysis } from '../models/services/ApiClient';
 import { useWorkoutStore } from '../models/repositories/WorkoutStore';
 import {
   AdaptationRequest,
@@ -11,8 +11,21 @@ import {
   ProgramAdaptationRequest,
   ProgramAdaptationResponse,
 } from '../models/types/Adaptation';
-import { EXERCISE_IMAGES, ExerciseId, normalizeExerciseKey } from '../models/types/Exercise';
+import { EXERCISE_IMAGES, ExerciseId, normalizeExerciseKey, EXERCISE_LABELS, EXERCISE_LIBRARY } from '../models/types/Exercise';
 import { WorkoutExercise } from '../models/types/Workout';
+import { getSessionMusclesHit } from '../models/types/Muscles';
+
+function getCanonicalMuscleGroup(exerciseName: string, currentMuscleGroup: string): string {
+  const norm = normalizeExerciseKey(exerciseName);
+  const lib = EXERCISE_LIBRARY.find((l) => l.idKey === norm);
+  if (lib?.muscleGroup) {
+    return lib.muscleGroup.toLowerCase();
+  }
+  if (currentMuscleGroup && !['compound', 'isolation', 'other'].includes(currentMuscleGroup.toLowerCase())) {
+    return currentMuscleGroup.toLowerCase();
+  }
+  return 'chest';
+}
 
 export interface ActionPlanItem {
   exerciseName: string;
@@ -303,6 +316,7 @@ export function useAdviceController() {
   const [lackingMuscles, setLackingMuscles] = useState<string[]>(['side_delts', 'upper_chest']);
   const [excellingMuscles, setExcellingMuscles] = useState<string[]>(['chest']);
   const [actionPlan, setActionPlan] = useState<ActionPlanItem[]>([]);
+  const [savedAnalysis, setSavedAnalysis] = useState<SavedPhysiqueAnalysis | null>(null);
 
   // Backend connection status
   const [backendStatus, setBackendStatus] = useState<{
@@ -324,7 +338,7 @@ export function useAdviceController() {
 
   const { getActiveProgram, getActiveWorkouts, activeExerciseMap, updateWorkoutExercises } = useWorkoutStore();
 
-  // Ping backend on mount
+  // Ping backend and load latest saved analysis on mount
   useEffect(() => {
     let mounted = true;
     ApiClient.checkHealth().then((res) => {
@@ -336,6 +350,24 @@ export function useAdviceController() {
         });
       }
     });
+
+    ApiClient.getLatestAnalysis().then((latest) => {
+      if (mounted && latest) {
+        setSavedAnalysis(latest);
+        if (latest.lacking_muscles && latest.lacking_muscles.length > 0) {
+          const lackingKeys = latest.lacking_muscles.flatMap((m) => matchMuscleKeys(m.muscle));
+          if (lackingKeys.length > 0) setLackingMuscles(Array.from(new Set(lackingKeys)));
+        }
+        if (latest.strong_muscles && latest.strong_muscles.length > 0) {
+          const strongKeys = latest.strong_muscles.flatMap((m) => matchMuscleKeys(m));
+          if (strongKeys.length > 0) setExcellingMuscles(Array.from(new Set(strongKeys)));
+        }
+        if (latest.advice && latest.advice.length > 0) {
+          setActionPlan(latest.advice.map((a) => ({ exerciseName: a.exercise, cue: a.cue })));
+        }
+      }
+    }).catch(() => {});
+
     return () => {
       mounted = false;
     };
@@ -376,22 +408,58 @@ export function useAdviceController() {
     setProgramAppliedSuccess(false);
 
     try {
-      let textResult = '';
       if (backendStatus.online && backendStatus.llmReady) {
-        textResult = await ApiClient.analyzePhysique(frontFile, backFile);
+        const res = await ApiClient.analyzePhysique(frontFile, backFile);
+        setSavedAnalysis(res);
+        setAnalysisResult(res.summary);
+        if (res.lacking_muscles && res.lacking_muscles.length > 0) {
+          const lackingKeys = res.lacking_muscles.flatMap((m) => matchMuscleKeys(m.muscle));
+          if (lackingKeys.length > 0) setLackingMuscles(Array.from(new Set(lackingKeys)));
+        }
+        if (res.strong_muscles && res.strong_muscles.length > 0) {
+          const strongKeys = res.strong_muscles.flatMap((m) => matchMuscleKeys(m));
+          if (strongKeys.length > 0) setExcellingMuscles(Array.from(new Set(strongKeys)));
+        }
+        if (res.advice && res.advice.length > 0) {
+          setActionPlan(res.advice.map((a) => ({ exerciseName: a.exercise, cue: a.cue })));
+        }
       } else {
-        textResult = await analyzePhysiquePhotos(frontFile, backFile);
-      }
-      setAnalysisResult(textResult);
+        const textResult = await analyzePhysiquePhotos(frontFile, backFile);
+        setAnalysisResult(textResult);
 
-      // Auto-extract lacking and excelling areas from advice critique
-      const { lacking, excelling, actionPlan: extractedActionPlan } = parsePhysiqueCritique(textResult);
-      setLackingMuscles(lacking);
-      setExcellingMuscles(excelling);
-      setActionPlan(extractedActionPlan);
+        // Auto-extract lacking and excelling areas from advice critique
+        const { lacking, excelling, actionPlan: extractedActionPlan } = parsePhysiqueCritique(textResult);
+        setLackingMuscles(lacking);
+        setExcellingMuscles(excelling);
+        setActionPlan(extractedActionPlan);
+      }
     } catch (err: any) {
       console.error('Physique analysis error:', err);
-      setError(err.message || 'Failed to analyze photos. Please check that photos clearly show your upper body.');
+      const rawMsg = err.message || (typeof err === 'string' ? err : '');
+      const lower = rawMsg.toLowerCase();
+      let friendly = rawMsg;
+
+      if (
+        lower.includes('high demand') ||
+        lower.includes('spikes in demand') ||
+        lower.includes('503') ||
+        lower.includes('unavailable')
+      ) {
+        friendly = 'The AI vision service is currently experiencing high demand. Please try again in a few moments.';
+      } else if (lower.includes('rate limit') || lower.includes('429')) {
+        friendly = 'The AI service is receiving too many requests. Please wait a moment before trying again.';
+      } else if (lower.includes('bad gateway') || lower.includes('502') || lower.includes('failed to fetch') || lower.includes('network error')) {
+        friendly = 'Unable to connect to the analysis service. Please check your connection and try again.';
+      } else if (!lower.includes('photos could not be evaluated') && !lower.includes('rejected')) {
+        friendly = rawMsg.replace(/^Error:\s*/i, '').replace(/^Analysis failed \(\d+\):\s*/i, '').trim();
+      }
+
+      // Safety filter: ensure no JSON structure or raw error dump leaks to the UI
+      if (friendly.includes('{') || friendly.includes('}') || friendly.includes('detail') || friendly.length > 250) {
+        friendly = 'The AI vision service is currently experiencing high demand. Please wait a moment and tap Try Again.';
+      }
+
+      setError(friendly || 'Failed to evaluate photos. Please ensure photos clearly show your upper body.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -445,15 +513,22 @@ export function useAdviceController() {
     try {
       const days: ProgramDay[] = activeWorkouts.map((w) => {
         const exs = activeExerciseMap[w.id] || [];
+        const sessionMuscles = getSessionMusclesHit(exs);
         return {
           day_id: w.id,
           day_title: w.title,
-          exercises: exs.map((e) => ({
-            name: e.name,
-            sets: Math.max(1, e.sets.length),
-            reps: e.sets[0]?.reps || '8-10',
-            muscle_group: e.muscleGroup.toLowerCase(),
-          })),
+          muscles_targeted: sessionMuscles.muscleKeys,
+          exercises: exs.map((e) => {
+            const canonicalKey = normalizeExerciseKey(e.name);
+            const standardName = EXERCISE_LABELS[canonicalKey] || e.name;
+            const canonicalMuscle = getCanonicalMuscleGroup(e.name, e.muscleGroup);
+            return {
+              name: standardName,
+              sets: Math.max(1, e.sets.length),
+              reps: e.sets[0]?.reps || '8-10',
+              muscle_group: canonicalMuscle,
+            };
+          }),
         };
       });
 
@@ -573,12 +648,17 @@ export function useAdviceController() {
         ...cleanExcelling.map((m) => ({ muscle_group: m, status: 'dominant' as const, confidence_score: 0.85 })),
       ];
 
-      const routinePayloadExercises: AdaptedExercise[] = currentExercises.map((e) => ({
-        name: e.name,
-        sets: Math.max(1, e.sets.length),
-        reps: e.sets[0]?.reps || '8-10',
-        muscle_group: e.muscleGroup.toLowerCase(),
-      }));
+      const routinePayloadExercises: AdaptedExercise[] = currentExercises.map((e) => {
+        const canonicalKey = normalizeExerciseKey(e.name);
+        const standardName = EXERCISE_LABELS[canonicalKey] || e.name;
+        const canonicalMuscle = getCanonicalMuscleGroup(e.name, e.muscleGroup);
+        return {
+          name: standardName,
+          sets: Math.max(1, e.sets.length),
+          reps: e.sets[0]?.reps || '8-10',
+          muscle_group: canonicalMuscle,
+        };
+      });
 
       const req: AdaptationRequest = {
         analysis_payload: {
@@ -700,5 +780,7 @@ export function useAdviceController() {
     },
     actionPlan,
     setActionPlan,
+    savedAnalysis,
+    clearError: () => setError(null),
   };
 }

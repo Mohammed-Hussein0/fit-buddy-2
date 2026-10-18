@@ -7,6 +7,7 @@ import { EXERCISE_IMAGES, ExerciseId, normalizeExerciseKey } from '../models/typ
 import { PREntry } from '../models/types/PersonalRecord';
 import { calculateEpley1RM } from '../models/services/StrengthEngine';
 import { ApiClient } from '../models/services/ApiClient';
+import { sanitizePositiveNumber } from '../utils/numberInputUtils';
 
 export interface WeekDayCalendarItem {
   date: Date;
@@ -268,7 +269,7 @@ export function useWorkoutController() {
     field: 'reps' | 'weight',
     value: string
   ) => {
-    const sanitized = value.replace(/[^0-9.]/g, '');
+    const sanitized = field === 'weight' ? sanitizePositiveNumber(value, true) : sanitizePositiveNumber(value, false);
     setWorkingExercises((prev) =>
       prev.map((ex) => {
         if (ex.id !== exerciseId) return ex;
@@ -405,6 +406,7 @@ export function useWorkoutController() {
     activeProgram,
     activeProgramId,
     activeWorkouts,
+    activeExerciseMap,
     todayDow: getTodayDow(),
     selectedWorkoutId,
     selectedWorkout,

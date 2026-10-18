@@ -3,7 +3,9 @@ import { Card, Button, Modal } from './ui';
 import { useMeasurementsController } from '../../controllers/useMeasurementsController';
 import { BodyMeasurement } from '../../models/types/Measurement';
 import { MeasurementChart } from './MeasurementChart';
-import { Ruler, Sparkles, TrendingUp, TrendingDown, Trash2, Plus } from 'lucide-react';
+import { Ruler, Sparkles, TrendingUp, TrendingDown, Trash2, Plus, Calendar } from 'lucide-react';
+import { PeriodProgressModal } from './PeriodProgressModal';
+import { preventMinusKeyDown, sanitizePositiveNumber } from '../../utils/numberInputUtils';
 
 export function BodyMeasurementsPanel() {
   const {
@@ -20,16 +22,17 @@ export function BodyMeasurementsPanel() {
   } = useMeasurementsController();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<BodyMeasurement>>({
     date: new Date().toISOString().split('T')[0],
-    shoulders_cm: latest?.shoulders_cm || 122,
-    chest_cm: latest?.chest_cm || 104,
-    waist_cm: latest?.waist_cm || 80,
-    arm_cm: latest?.arm_cm || 38,
-    neck_cm: latest?.neck_cm || 39,
-    hip_cm: latest?.hip_cm || 95,
-    thigh_cm: latest?.thigh_cm || 59,
-    calf_cm: latest?.calf_cm || 38,
+    shoulders_cm: latest?.shoulders_cm,
+    chest_cm: latest?.chest_cm,
+    waist_cm: latest?.waist_cm,
+    arm_cm: latest?.arm_cm,
+    neck_cm: latest?.neck_cm,
+    hip_cm: latest?.hip_cm,
+    thigh_cm: latest?.thigh_cm,
+    calf_cm: latest?.calf_cm,
     notes: '',
   });
 
@@ -37,8 +40,9 @@ export function BodyMeasurementsPanel() {
     if (field === 'date' || field === 'notes') {
       setFormData((prev) => ({ ...prev, [field]: val }));
     } else {
-      const num = parseFloat(val);
-      setFormData((prev) => ({ ...prev, [field]: isNaN(num) ? undefined : num }));
+      const sanitized = sanitizePositiveNumber(val, true);
+      const num = parseFloat(sanitized);
+      setFormData((prev) => ({ ...prev, [field]: isNaN(num) ? undefined : Math.max(0, num) }));
     }
   };
 
@@ -73,27 +77,38 @@ export function BodyMeasurementsPanel() {
           </div>
         </div>
 
-        <Button
-          size="md"
-          onClick={() => {
-            setFormData({
-              date: new Date().toISOString().split('T')[0],
-              shoulders_cm: latest?.shoulders_cm || 122,
-              chest_cm: latest?.chest_cm || 104,
-              waist_cm: latest?.waist_cm || 80,
-              arm_cm: latest?.arm_cm || 38,
-              neck_cm: latest?.neck_cm || 39,
-              hip_cm: latest?.hip_cm || 95,
-              thigh_cm: latest?.thigh_cm || 59,
-              calf_cm: latest?.calf_cm || 38,
-              notes: '',
-            });
-            setIsModalOpen(true);
-          }}
-          className="w-full sm:w-auto"
-        >
-          <Plus size={15} /> Log Tape Check-In
-        </Button>
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={() => setIsPeriodModalOpen(true)}
+            className="flex-1 sm:flex-initial"
+          >
+            <Calendar size={15} /> Assess Period
+          </Button>
+
+          <Button
+            size="md"
+            onClick={() => {
+              setFormData({
+                date: new Date().toISOString().split('T')[0],
+                shoulders_cm: latest?.shoulders_cm,
+                chest_cm: latest?.chest_cm,
+                waist_cm: latest?.waist_cm,
+                arm_cm: latest?.arm_cm,
+                neck_cm: latest?.neck_cm,
+                hip_cm: latest?.hip_cm,
+                thigh_cm: latest?.thigh_cm,
+                calf_cm: latest?.calf_cm,
+                notes: '',
+              });
+              setIsModalOpen(true);
+            }}
+            className="flex-1 sm:flex-initial"
+          >
+            <Plus size={15} /> Log Tape Check-In
+          </Button>
+        </div>
       </div>
 
       {/* ─── V-Taper Scoreboard ───────────────────────────────────────── */}
@@ -272,38 +287,46 @@ export function BodyMeasurementsPanel() {
               </tr>
             </thead>
             <tbody>
-              {measurements.map((m) => {
-                const ratio =
-                  m.shoulders_cm && m.waist_cm
-                    ? (m.shoulders_cm / m.waist_cm).toFixed(3)
-                    : '—';
+              {measurements.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-neutral-500 font-mono-stat text-xs">
+                    No tape measurements recorded yet. Log your first check-in above.
+                  </td>
+                </tr>
+              ) : (
+                measurements.map((m) => {
+                  const ratio =
+                    m.shoulders_cm && m.waist_cm
+                      ? (m.shoulders_cm / m.waist_cm).toFixed(3)
+                      : '—';
 
-                return (
-                  <tr
-                    key={m.date}
-                    className="border-b border-[#1f1f23] hover:bg-[#18181b]/60 transition-colors"
-                  >
-                    <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">{m.date}</td>
-                    <td className="py-3 px-3.5 text-neutral-300">{m.shoulders_cm ? `${m.shoulders_cm} cm` : '—'}</td>
-                    <td className="py-3 px-3.5 text-neutral-300">{m.chest_cm ? `${m.chest_cm} cm` : '—'}</td>
-                    <td className="py-3 px-3.5 text-neutral-300">{m.waist_cm ? `${m.waist_cm} cm` : '—'}</td>
-                    <td className="py-3 px-3.5 text-neutral-300">{m.arm_cm ? `${m.arm_cm} cm` : '—'}</td>
-                    <td className="py-3 px-3.5 font-black text-[#facc15]">{ratio}</td>
-                    <td className="py-3 px-3.5 text-neutral-400 text-xs max-w-[200px] truncate">
-                      {m.notes || '—'}
-                    </td>
-                    <td className="py-3 px-3.5 text-right">
-                      <button
-                        onClick={() => removeMeasurement(m.date)}
-                        className="p-1 text-neutral-500 hover:text-[#ef4444] transition-colors cursor-pointer"
-                        title="Delete check-in"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                  return (
+                    <tr
+                      key={m.date}
+                      className="border-b border-[#1f1f23] hover:bg-[#18181b]/60 transition-colors"
+                    >
+                      <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">{m.date}</td>
+                      <td className="py-3 px-3.5 text-neutral-300">{m.shoulders_cm ? `${m.shoulders_cm} cm` : '—'}</td>
+                      <td className="py-3 px-3.5 text-neutral-300">{m.chest_cm ? `${m.chest_cm} cm` : '—'}</td>
+                      <td className="py-3 px-3.5 text-neutral-300">{m.waist_cm ? `${m.waist_cm} cm` : '—'}</td>
+                      <td className="py-3 px-3.5 text-neutral-300">{m.arm_cm ? `${m.arm_cm} cm` : '—'}</td>
+                      <td className="py-3 px-3.5 font-black text-[#facc15]">{ratio}</td>
+                      <td className="py-3 px-3.5 text-neutral-400 text-xs max-w-[200px] truncate">
+                        {m.notes || '—'}
+                      </td>
+                      <td className="py-3 px-3.5 text-right">
+                        <button
+                          onClick={() => removeMeasurement(m.date)}
+                          className="p-1 text-neutral-500 hover:text-[#ef4444] transition-colors cursor-pointer"
+                          title="Delete check-in"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -346,8 +369,10 @@ export function BodyMeasurementsPanel() {
                 </label>
                 <input
                   type="number"
+                  min="0"
                   step="0.1"
                   value={formData[f.field] ?? ''}
+                  onKeyDown={preventMinusKeyDown}
                   onChange={(e) => handleInputChange(f.field, e.target.value)}
                   placeholder="0.0"
                   className="w-full bg-[#121214] border border-[#27272a] px-3 py-2 text-xs text-white font-mono-stat focus:outline-none focus:border-[#dc2626]"
@@ -384,6 +409,12 @@ export function BodyMeasurementsPanel() {
           </div>
         </form>
       </Modal>
+
+      {/* ─── Period Progress Assessment Wizard Modal ──────────────────────── */}
+      <PeriodProgressModal
+        isOpen={isPeriodModalOpen}
+        onClose={() => setIsPeriodModalOpen(false)}
+      />
     </Card>
   );
 }

@@ -1,6 +1,9 @@
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { useEffect, useState } from 'react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
+import { apiClient } from '../../models/services/ApiClient';
+import { Scale } from 'lucide-react';
 
-interface WeightEntry {
+export interface WeightEntry {
   date: string;
   weight: number;
 }
@@ -12,22 +15,83 @@ interface WeightChartProps {
 }
 
 export function WeightChart({ currentWeight, goalWeight, height = 200 }: WeightChartProps) {
-  const data: WeightEntry[] = [
-    { date: 'Nov 25', weight: currentWeight + 4.2 },
-    { date: 'Dec 25', weight: currentWeight + 3.0 },
-    { date: 'Jan 26', weight: currentWeight + 2.1 },
-    { date: 'Feb 26', weight: currentWeight + 1.4 },
-    { date: 'Mar 26', weight: currentWeight + 0.8 },
-    { date: 'Apr 26', weight: currentWeight + 0.2 },
-    { date: 'Today', weight: currentWeight },
-  ];
+  const [logs, setLogs] = useState<WeightEntry[]>([]);
 
-  const minW = Math.min(...data.map((d) => d.weight), goalWeight) - 2;
-  const maxW = Math.max(...data.map((d) => d.weight), goalWeight) + 2;
+  useEffect(() => {
+    let isMounted = true;
+    apiClient
+      .getWeightLogs(60)
+      .then((items) => {
+        if (isMounted && items && items.length > 0) {
+          // Sort ascending chronologically
+          const sorted = [...items].sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+          setLogs(sorted);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentWeight]);
+
+  // Build chart data strictly from real data
+  let data: WeightEntry[] = [];
+  if (logs.length > 0) {
+    let foundToday = false;
+    data = logs.map((it) => {
+      const d = new Date(it.date);
+      const isToday = new Date().toDateString() === d.toDateString();
+      if (isToday) foundToday = true;
+      const formatted = isToday
+        ? 'Today'
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return {
+        date: formatted,
+        weight: isToday && currentWeight > 0 ? currentWeight : it.weight,
+      };
+    });
+    // If user has set currentWeight today and it's not yet in logs, append it
+    if (!foundToday && currentWeight > 0) {
+      data.push({ date: 'Today', weight: currentWeight });
+    }
+  } else if (currentWeight > 0) {
+    // Only 1 real entry: the user's current weight
+    data = [{ date: 'Today', weight: currentWeight }];
+  }
+
+  // If user hasn't entered anything yet, do not render fabricated charts
+  if (data.length === 0) {
+    return (
+      <div
+        style={{ width: '100%', height }}
+        className="flex flex-col items-center justify-center text-center p-6 border border-dashed border-[#27272a] rounded-xl bg-[#141416]/40 font-mono-stat"
+      >
+        <Scale size={28} className="text-neutral-600 mb-2.5" />
+        <p className="text-xs font-black uppercase tracking-wider text-neutral-400">No Weight History Recorded</p>
+        <p className="text-[11px] text-neutral-500 mt-1 max-w-[260px] leading-relaxed">
+          Update your current weight in the card above to plot your real weight progress.
+        </p>
+      </div>
+    );
+  }
+
+  const weights = data.map((d) => d.weight);
+  const refWeights = goalWeight > 0 ? [...weights, goalWeight] : weights;
+  const minW = refWeights.length > 0 ? Math.min(...refWeights) - 2 : 50;
+  const maxW = refWeights.length > 0 ? Math.max(...refWeights) + 2 : 100;
 
   return (
-    <div style={{ width: '100%', height }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div style={{ width: '100%', height }} className="font-mono-stat">
+      {data.length <= 1 && (
+        <div className="text-[11px] text-neutral-500 mb-2 flex items-center justify-between">
+          <span>Real weigh-in history</span>
+          <span className="text-neutral-400">1 entry recorded ({currentWeight} kg)</span>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={data.length <= 1 ? height - 20 : height}>
         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="weightGradRed" x1="0" y1="0" x2="0" y2="1">
@@ -53,6 +117,19 @@ export function WeightChart({ currentWeight, goalWeight, height = 200 }: WeightC
             tickFormatter={(val) => `${val}kg`}
             tick={{ fill: '#71717a' }}
           />
+          {goalWeight > 0 && (
+            <ReferenceLine
+              y={goalWeight}
+              stroke="#ef4444"
+              strokeDasharray="3 3"
+              label={{
+                value: `Goal: ${goalWeight}kg`,
+                fill: '#ef4444',
+                fontSize: 10,
+                position: 'right',
+              }}
+            />
+          )}
           <Tooltip
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
@@ -63,7 +140,9 @@ export function WeightChart({ currentWeight, goalWeight, height = 200 }: WeightC
                     <p className="font-black text-white text-sm">
                       {item.weight} <span className="text-xs font-normal text-neutral-400">kg</span>
                     </p>
-                    <p className="text-[10px] text-neutral-500 mt-1">Goal: {goalWeight} kg</p>
+                    {goalWeight > 0 && (
+                      <p className="text-[10px] text-neutral-500 mt-1">Goal: {goalWeight} kg</p>
+                    )}
                   </div>
                 );
               }
@@ -77,6 +156,8 @@ export function WeightChart({ currentWeight, goalWeight, height = 200 }: WeightC
             strokeWidth={2.5}
             fillOpacity={1}
             fill="url(#weightGradRed)"
+            dot={{ fill: '#dc2626', r: 4, stroke: '#000', strokeWidth: 1.5 }}
+            activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>

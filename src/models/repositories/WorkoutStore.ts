@@ -30,7 +30,8 @@ interface WorkoutStoreState {
   updateProgramSchedule: (programId: string, dayMappings: { workoutId: string; dayOfWeek: number }[]) => void;
   updateWorkoutExercises: (workoutId: string, exercises: WorkoutExercise[]) => void;
   recordSession: (workoutId: string, workoutTitle: string, exercises: WorkoutExercise[]) => WorkoutSession | null;
-  recordBenchmarkSession: (exerciseId: string, oneRM: number, rpe?: number) => void;
+  recordBenchmarkSession: (exerciseId: string, oneRM: number, rpe?: number, dateStr?: string) => void;
+  syncFromBackend: () => Promise<void>;
   clearAll: () => void;
 }
 
@@ -122,161 +123,7 @@ const PREBUILT_EXERCISES_MAP: Record<string, WorkoutExercise[]> = {
   ],
 };
 
-function daysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString();
-}
-
-const DEFAULT_HISTORY: WorkoutSession[] = [
-  {
-    id: 's-1',
-    workoutId: 'ppl-push1',
-    workoutTitle: 'Push A',
-    date: daysAgo(52),
-    exercises: [
-      {
-        exerciseId: EXERCISES.BARBELL_BENCH_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_BENCH_PRESS],
-        bestEpley1RM: 93.3,
-        totalVolume: 1200,
-        sets: [{ weight: 80, reps: 5, rpe: 7 }, { weight: 80, reps: 5, rpe: 8 }, { weight: 80, reps: 5, rpe: 8 }],
-      },
-      {
-        exerciseId: EXERCISES.OVERHEAD_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.OVERHEAD_PRESS],
-        bestEpley1RM: 64.2,
-        totalVolume: 825,
-        sets: [{ weight: 55, reps: 5, rpe: 7 }, { weight: 55, reps: 5, rpe: 8 }, { weight: 55, reps: 5, rpe: 8 }],
-      },
-    ],
-    totalVolume: 2025,
-  },
-  {
-    id: 's-2',
-    workoutId: 'ppl-pull1',
-    workoutTitle: 'Pull A',
-    date: daysAgo(48),
-    exercises: [
-      {
-        exerciseId: EXERCISES.DEADLIFT,
-        exerciseName: EXERCISE_LABELS[EXERCISES.DEADLIFT],
-        bestEpley1RM: 140.0,
-        totalVolume: 1800,
-        sets: [{ weight: 120, reps: 5, rpe: 8 }, { weight: 120, reps: 5, rpe: 8 }, { weight: 120, reps: 5, rpe: 9 }],
-      },
-      {
-        exerciseId: EXERCISES.BARBELL_ROW,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_ROW],
-        bestEpley1RM: 90.0,
-        totalVolume: 1350,
-        sets: [{ weight: 75, reps: 6, rpe: 7 }, { weight: 75, reps: 6, rpe: 8 }, { weight: 75, reps: 6, rpe: 8 }],
-      },
-    ],
-    totalVolume: 3150,
-  },
-  {
-    id: 's-3',
-    workoutId: 'ppl-legs1',
-    workoutTitle: 'Legs A',
-    date: daysAgo(44),
-    exercises: [
-      {
-        exerciseId: EXERCISES.BARBELL_SQUAT,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_SQUAT],
-        bestEpley1RM: 116.7,
-        totalVolume: 1500,
-        sets: [{ weight: 100, reps: 5, rpe: 8 }, { weight: 100, reps: 5, rpe: 8 }, { weight: 100, reps: 5, rpe: 9 }],
-      },
-    ],
-    totalVolume: 1500,
-  },
-  {
-    id: 's-4',
-    workoutId: 'ppl-push1',
-    workoutTitle: 'Push A',
-    date: daysAgo(21),
-    exercises: [
-      {
-        exerciseId: EXERCISES.BARBELL_BENCH_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_BENCH_PRESS],
-        bestEpley1RM: 99.2,
-        totalVolume: 1275,
-        sets: [{ weight: 85, reps: 5, rpe: 7 }, { weight: 85, reps: 5, rpe: 8 }, { weight: 85, reps: 5, rpe: 8 }],
-      },
-      {
-        exerciseId: EXERCISES.OVERHEAD_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.OVERHEAD_PRESS],
-        bestEpley1RM: 70.0,
-        totalVolume: 900,
-        sets: [{ weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 5, rpe: 8 }, { weight: 60, reps: 5, rpe: 9 }],
-      },
-    ],
-    totalVolume: 2175,
-  },
-  {
-    id: 's-5',
-    workoutId: 'ppl-pull1',
-    workoutTitle: 'Pull A',
-    date: daysAgo(14),
-    exercises: [
-      {
-        exerciseId: EXERCISES.DEADLIFT,
-        exerciseName: EXERCISE_LABELS[EXERCISES.DEADLIFT],
-        bestEpley1RM: 151.7,
-        totalVolume: 1950,
-        sets: [{ weight: 130, reps: 5, rpe: 8 }, { weight: 130, reps: 5, rpe: 8 }, { weight: 130, reps: 5, rpe: 9 }],
-      },
-      {
-        exerciseId: EXERCISES.BARBELL_ROW,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_ROW],
-        bestEpley1RM: 96.0,
-        totalVolume: 1440,
-        sets: [{ weight: 80, reps: 6, rpe: 7 }, { weight: 80, reps: 6, rpe: 8 }, { weight: 80, reps: 6, rpe: 8 }],
-      },
-    ],
-    totalVolume: 3390,
-  },
-  {
-    id: 's-6',
-    workoutId: 'ppl-legs1',
-    workoutTitle: 'Legs A',
-    date: daysAgo(7),
-    exercises: [
-      {
-        exerciseId: EXERCISES.BARBELL_SQUAT,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_SQUAT],
-        bestEpley1RM: 128.3,
-        totalVolume: 1650,
-        sets: [{ weight: 110, reps: 5, rpe: 8 }, { weight: 110, reps: 5, rpe: 8 }, { weight: 110, reps: 5, rpe: 9 }],
-      },
-    ],
-    totalVolume: 1650,
-  },
-  {
-    id: 's-7',
-    workoutId: 'ppl-push1',
-    workoutTitle: 'Push A',
-    date: daysAgo(2),
-    exercises: [
-      {
-        exerciseId: EXERCISES.BARBELL_BENCH_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.BARBELL_BENCH_PRESS],
-        bestEpley1RM: 102.1,
-        totalVolume: 1315,
-        sets: [{ weight: 87.5, reps: 5, rpe: 7 }, { weight: 87.5, reps: 5, rpe: 8 }, { weight: 90, reps: 4, rpe: 9 }],
-      },
-      {
-        exerciseId: EXERCISES.OVERHEAD_PRESS,
-        exerciseName: EXERCISE_LABELS[EXERCISES.OVERHEAD_PRESS],
-        bestEpley1RM: 72.9,
-        totalVolume: 938,
-        sets: [{ weight: 62.5, reps: 5, rpe: 8 }, { weight: 62.5, reps: 5, rpe: 8 }, { weight: 62.5, reps: 5, rpe: 9 }],
-      },
-    ],
-    totalVolume: 2253,
-  },
-];
+const DEFAULT_HISTORY: WorkoutSession[] = [];
 
 const sanitizeExerciseMap = (map: Record<string, WorkoutExercise[]>): Record<string, WorkoutExercise[]> => {
   if (!map) return {};
@@ -541,18 +388,19 @@ export const useWorkoutStore = create<WorkoutStoreState>()(
 
       },
 
-      recordBenchmarkSession: (exerciseId: string, oneRM: number, rpe = 10) => {
+      recordBenchmarkSession: (exerciseId: string, oneRM: number, rpe = 10, dateStr?: string) => {
         const canonicalKey = normalizeExerciseKey(exerciseId);
         const standardName = EXERCISE_LABELS[canonicalKey] || exerciseId;
         const anatomy = EXERCISE_ANATOMY[canonicalKey];
         const val = Math.round(oneRM * 10) / 10;
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const targetDate = dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const sessionIso = dateStr ? new Date(`${dateStr.slice(0, 10)}T12:00:00Z`).toISOString() : new Date().toISOString();
 
         set((state) => {
           const existingIdx = state.workoutHistory.findIndex(
             (s) =>
               s.workoutId === 'benchmark' &&
-              s.date.slice(0, 10) === todayStr &&
+              s.date.slice(0, 10) === targetDate &&
               s.exercises.some((e) => e.exerciseId === canonicalKey)
           );
 
@@ -573,7 +421,7 @@ export const useWorkoutStore = create<WorkoutStoreState>()(
             });
             updated[existingIdx] = {
               ...existing,
-              date: new Date().toISOString(),
+              date: sessionIso,
               exercises: updatedExercises,
               totalVolume: updatedExercises.reduce((acc, e) => acc + e.totalVolume, 0),
             };
@@ -581,10 +429,10 @@ export const useWorkoutStore = create<WorkoutStoreState>()(
           }
 
           const session: WorkoutSession = {
-            id: `benchmark-${Date.now()}`,
+            id: `benchmark-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
             workoutId: 'benchmark',
             workoutTitle: '1RM Benchmark Test',
-            date: new Date().toISOString(),
+            date: sessionIso,
             exercises: [
               {
                 exerciseId: canonicalKey,
@@ -604,6 +452,65 @@ export const useWorkoutStore = create<WorkoutStoreState>()(
             workoutHistory: [session, ...state.workoutHistory],
           };
         });
+
+        // Sync benchmark test to backend in background
+        apiClient.recordWorkoutSession({
+          workout_id: 'benchmark',
+          workout_title: '1RM Benchmark Test',
+          date: targetDate,
+          exercises: [
+            {
+              exercise_key: canonicalKey,
+              exercise_name: standardName,
+              sets: [{ set_number: 1, weight_kg: val, reps: 1, rpe }],
+            },
+          ],
+        }).catch((err: any) => {
+          console.warn('[WorkoutStore] Benchmark sync skipped:', err?.message || err);
+        });
+      },
+
+      syncFromBackend: async () => {
+        try {
+          const serverSessions = await apiClient.getWorkoutHistory(100);
+          if (serverSessions && serverSessions.length > 0) {
+            set((state) => {
+              const serverIds = new Set(serverSessions.map((s) => s.id));
+              // Filter out default hardcoded placeholder sessions (s-1 through s-7) when real sessions exist
+              const localOnly = state.workoutHistory.filter(
+                (s) => !serverIds.has(s.id) && !s.id.startsWith('s-')
+              );
+              const merged = [...serverSessions, ...localOnly].sort(
+                (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+              );
+
+              const updatedLastSession = { ...state.lastSession };
+              for (const session of serverSessions) {
+                if (session.workoutId && session.workoutId !== 'benchmark' && !updatedLastSession[session.workoutId]) {
+                  updatedLastSession[session.workoutId] = session.exercises.map((e, idx) => ({
+                    id: `ex-synced-${idx}`,
+                    name: e.exerciseId,
+                    muscleGroup: typeof e.muscleGroup === 'string' ? e.muscleGroup : 'Compound',
+                    imageUrl: EXERCISE_IMAGES[e.exerciseId] || '',
+                    sets: e.sets.map((s, sIdx) => ({
+                      id: `s-synced-${idx}-${sIdx}`,
+                      weight: String(s.weight),
+                      reps: String(s.reps),
+                      rpe: s.rpe || 0,
+                    })),
+                  }));
+                }
+              }
+
+              return {
+                workoutHistory: merged,
+                lastSession: updatedLastSession,
+              };
+            });
+          }
+        } catch (err: any) {
+          console.warn('[WorkoutStore] Background history sync skipped:', err?.message || err);
+        }
       },
 
       clearAll: () =>

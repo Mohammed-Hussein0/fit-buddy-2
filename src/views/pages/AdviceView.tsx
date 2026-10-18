@@ -21,7 +21,9 @@ import {
   Plus,
   X,
   Dumbbell,
+  Target,
 } from 'lucide-react';
+import { getSessionMusclesHit } from '../../models/types/Muscles';
 
 const AVAILABLE_MUSCLES = [
   { key: 'arms', label: 'Arms' },
@@ -79,6 +81,8 @@ export function AdviceView() {
     triggerAdaptationEngine,
     applyAdaptedRoutine,
     clearAdaptation,
+    savedAnalysis,
+    clearError,
   } = useAdviceController();
 
   const frontInputRef = useRef<HTMLInputElement>(null);
@@ -274,9 +278,41 @@ export function AdviceView() {
 
       {/* Error Banner */}
       {error && (
-        <div className="p-3.5 rounded-lg bg-red-950/40 border border-red-800/40 text-red-400 text-xs font-bold flex items-center gap-2">
-          <AlertCircle size={16} />
-          <span>{error}</span>
+        <div className="p-4 rounded-xl bg-red-950/40 border border-red-800/50 text-red-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-lg shadow-red-950/20">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-red-900/40 border border-red-700/50 text-red-400 flex-shrink-0 mt-0.5 sm:mt-0">
+              <AlertCircle size={18} />
+            </div>
+            <div>
+              <p className="font-black uppercase tracking-wider text-red-300 text-xs font-mono-stat">
+                Physique Assessment Notice
+              </p>
+              <p className="text-neutral-300 text-xs mt-0.5 leading-relaxed">
+                {error}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto self-end sm:self-center">
+            {frontImage && backImage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={submitAnalysis}
+                disabled={isAnalyzing}
+                className="text-xs border-red-800/60 hover:bg-red-900/40 text-red-200"
+              >
+                <RefreshCw size={13} className={isAnalyzing ? 'animate-spin' : ''} />
+                Try Again
+              </Button>
+            )}
+            <button
+              onClick={clearError}
+              className="p-1.5 rounded text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Dismiss"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -300,15 +336,22 @@ export function AdviceView() {
         </Button>
       </div>
 
-      {/* ─── Results Card: Critique ──────────────────────────────────────── */}
-      {analysisResult && (
-        <Card className="p-6 sm:p-8 border-l-4 border-l-[#dc2626] animate-fade-in space-y-4">
+      {/* ─── Results Card: Saved Assessment or Critique ──────────────────────── */}
+      {(savedAnalysis || analysisResult) && (
+        <Card className="p-6 sm:p-8 border-l-4 border-l-[#dc2626] animate-fade-in space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#27272a]">
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-4 bg-[#dc2626] rounded-sm" />
-              <h3 className="text-base font-black text-white uppercase tracking-wider">
-                Physique Critique & Symmetry Breakdown
-              </h3>
+              <div>
+                <h3 className="text-base font-black text-white uppercase tracking-wider">
+                  Physique Assessment & Symmetry Breakdown
+                </h3>
+                {savedAnalysis?.created_at && (
+                  <p className="text-[11px] text-neutral-400 font-mono-stat mt-0.5">
+                    Saved Assessment · {new Date(savedAnalysis.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <Button variant="ghost" size="md" onClick={resetAnalysis}>
@@ -317,9 +360,77 @@ export function AdviceView() {
             </div>
           </div>
 
-          <div className="text-xs sm:text-sm leading-relaxed space-y-3.5 whitespace-pre-wrap font-medium text-neutral-300 font-mono-stat">
-            {analysisResult}
+          {/* Overall Review / Summary */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 font-mono-stat">
+              Overall Summary
+            </h4>
+            <p className="text-xs sm:text-sm leading-relaxed font-medium text-neutral-200 font-mono-stat bg-[#141416] p-4 rounded-lg border border-[#27272a]">
+              {savedAnalysis?.summary || analysisResult}
+            </p>
           </div>
+
+          {/* Strong & Lacking Muscles Grid */}
+          {savedAnalysis && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Strong Muscles */}
+              <div className="p-4 rounded-lg bg-[#141416] border border-[#27272a] space-y-2.5">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <ShieldCheck size={16} />
+                  <h4 className="text-xs font-black uppercase tracking-wider">Strong / Dominant Muscles</h4>
+                </div>
+                {savedAnalysis.strong_muscles.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {savedAnalysis.strong_muscles.map((m, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-emerald-950/40 border border-emerald-700/60 text-emerald-300 text-xs font-bold font-mono-stat rounded">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 italic">None highlighted</p>
+                )}
+              </div>
+
+              {/* Lacking Muscles */}
+              <div className="p-4 rounded-lg bg-[#141416] border border-[#27272a] space-y-2.5">
+                <div className="flex items-center gap-2 text-[#ef4444]">
+                  <Flame size={16} />
+                  <h4 className="text-xs font-black uppercase tracking-wider">Lacking / Lagging Muscles</h4>
+                </div>
+                {savedAnalysis.lacking_muscles.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    {savedAnalysis.lacking_muscles.map((item, idx) => (
+                      <div key={idx} className="text-xs font-mono-stat">
+                        <span className="font-bold text-red-300 uppercase">{item.muscle}</span>
+                        {item.reason && <span className="text-neutral-400 ml-1.5">— {item.reason}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 italic">No lagging muscles noted</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Advice / Action Plan */}
+          {savedAnalysis?.advice && savedAnalysis.advice.length > 0 && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2 text-amber-400">
+                <Dumbbell size={16} />
+                <h4 className="text-xs font-black uppercase tracking-wider">Prescribed Advice & Movements</h4>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {savedAnalysis.advice.map((item, idx) => (
+                  <div key={idx} className="p-3 bg-[#141416] border border-[#27272a] rounded space-y-1 font-mono-stat">
+                    <p className="text-xs font-bold text-amber-300 uppercase">{item.exercise}</p>
+                    {item.cue && <p className="text-[11px] text-neutral-400 leading-snug">{item.cue}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       )}
 
@@ -490,12 +601,18 @@ export function AdviceView() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 font-mono-stat">
               {activeWorkouts.map((w, idx) => {
-                const exCount = (activeExerciseMap[w.id] || []).length;
+                const exs = activeExerciseMap[w.id] || [];
+                const dayMuscles = getSessionMusclesHit(exs);
                 return (
                   <div key={w.id} className="p-2.5 bg-[#141416] border border-[#27272a] rounded">
                     <p className="text-[10px] text-neutral-500 uppercase font-black">Day {idx + 1}</p>
                     <p className="text-xs font-bold text-white truncate mt-0.5">{w.title}</p>
-                    <p className="text-[10px] text-neutral-400 mt-1">{exCount} exercises</p>
+                    <p className="text-[10px] text-neutral-400 mt-1">{exs.length} exercises</p>
+                    {dayMuscles.displayMuscles.length > 0 && (
+                      <p className="text-[9px] text-red-400 font-mono-stat truncate mt-1">
+                        {dayMuscles.displayMuscles.join(' · ')}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -638,8 +755,25 @@ export function AdviceView() {
 
               return (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between px-1 text-xs text-neutral-400 font-mono-stat">
-                    <span>{currentDay.day_title} — Exercises</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between px-1 text-xs text-neutral-400 font-mono-stat gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-white font-bold">{currentDay.day_title}</span>
+                      <span className="text-neutral-600">·</span>
+                      <span className="text-[11px] text-neutral-400 flex items-center gap-1">
+                        <Target size={11} className="text-[#ef4444]" /> Targeted:
+                      </span>
+                      {(() => {
+                        const dayMuscles = getSessionMusclesHit(currentDay.exercises);
+                        return dayMuscles.displayMuscles.map((m) => (
+                          <span
+                            key={m}
+                            className="px-1.5 py-0.5 bg-red-950/40 border border-red-800/40 text-red-300 text-[10px] font-bold rounded"
+                          >
+                            {m}
+                          </span>
+                        ));
+                      })()}
+                    </div>
                     <span>Total Exercises: {currentDay.exercises.length}</span>
                   </div>
 

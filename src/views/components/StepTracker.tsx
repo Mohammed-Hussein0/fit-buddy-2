@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Check } from 'lucide-react';
 import { Card, Button } from './ui';
 import { ApiClient } from '../../models/services/ApiClient';
+import { preventMinusKeyDown, sanitizePositiveNumber } from '../../utils/numberInputUtils';
 
 interface StepTrackerProps {
   stepGoal: number;
@@ -111,9 +112,11 @@ export function StepTracker({ stepGoal }: StepTrackerProps) {
         <div className="mt-3 pt-3 border-t border-[#262626] flex gap-2">
           <input
             type="number"
+            min="0"
             placeholder="Enter total steps"
             value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
+            onKeyDown={preventMinusKeyDown}
+            onChange={(e) => setCustomInput(sanitizePositiveNumber(e.target.value, false))}
             className="flex-1 bg-black border border-[#333338] px-3 py-1.5 text-xs text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#dc2626] font-mono-stat"
           />
           <Button size="sm" onClick={handleSetCustom}>

@@ -14,7 +14,8 @@ import {
   MOVEMENT_PATTERN_CATEGORIES,
 } from '../../models/types/Exercise';
 import { TIER_COLORS, TIER_LABELS, getPercentileColor } from '../../models/types/StrengthStandards';
-import { ChevronRight, ArrowUpRight, Search, Dumbbell, Shield, Activity, Target, CheckSquare, Square, Filter, Scale, TrendingUp, Layers } from 'lucide-react';
+import { ChevronRight, ArrowUpRight, Search, Dumbbell, Shield, Activity, Target, CheckSquare, Square, Filter, Scale, TrendingUp, Layers, Calendar } from 'lucide-react';
+import { PeriodProgressModal } from '../components/PeriodProgressModal';
 
 interface StatsViewProps {
   userId?: string;
@@ -45,6 +46,7 @@ export function StatsView({ userId }: StatsViewProps) {
   } = useStatsController(userId);
 
   const [activeTab, setActiveTab] = useState<'diagnostics' | 'compounds' | 'framework'>('diagnostics');
+  const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
   const selectedStats = selectedExerciseId ? getExerciseStats(selectedExerciseId) : null;
   const selectedDetails = selectedExerciseId ? getExerciseDetails(selectedExerciseId) : undefined;
 
@@ -52,12 +54,22 @@ export function StatsView({ userId }: StatsViewProps) {
     <div className="space-y-8 sm:space-y-10 animate-fade-in font-mono-stat">
 
       {/* ─── Page Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 pb-4 border-b border-[#1e1e22]">
-        <div className="w-1 h-8 bg-[#dc2626] flex-shrink-0" />
-        <div>
-          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Statistics</h2>
-          <p className="text-xs text-neutral-500 mt-0.5">Volume, strength, and progress over time</p>
+      <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#1e1e22] flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 bg-[#dc2626] flex-shrink-0" />
+          <div>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Statistics</h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Volume, strength, and progress over time</p>
+          </div>
         </div>
+
+        <button
+          onClick={() => setShowPeriodModal(true)}
+          className="flex items-center gap-2 px-3.5 py-2 bg-[#dc2626] hover:bg-[#b91c1c] text-white border border-[#dc2626] text-xs font-mono-stat font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+        >
+          <Calendar size={14} />
+          <span>Assess Custom Period</span>
+        </button>
       </div>
 
       {/* ─── Volume Card ─────────────────────────────────────────────────────── */}
@@ -191,11 +203,17 @@ export function StatsView({ userId }: StatsViewProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 p-3 bg-[#0c0c0e] border border-[#1a1a1e] text-center">
+                      <div className="grid grid-cols-4 gap-2 p-3 bg-[#0c0c0e] border border-[#1a1a1e] text-center">
                         <div>
                           <p className="text-[9px] font-semibold text-neutral-500 uppercase mb-1">1RM</p>
                           <p className="text-sm font-black text-white">
                             {stats.latest1RM > 0 ? `${stats.latest1RM}kg` : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-semibold text-neutral-500 uppercase mb-1" title="Allometric Relative Score: 1RM / BW^0.67">Rel (AS)</p>
+                          <p className="text-sm font-black text-[#dc2626] font-mono-stat" title={`Allometric Score: ${stats.allometricScore}`}>
+                            {stats.allometricScore > 0 ? stats.allometricScore : '—'}
                           </p>
                         </div>
                         <div>
@@ -486,10 +504,16 @@ export function StatsView({ userId }: StatsViewProps) {
         exerciseDetails={selectedDetails}
         userDemographic={{
           gender: profile.gender,
-          age: parseInt(profile.age, 10) || 25,
-          currentWeight: parseFloat(profile.currentWeight) || 78.5,
+          age: parseInt(profile.age, 10) || 0,
+          currentWeight: parseFloat(profile.currentWeight) || 0,
         }}
         onSave1RM={update1RM}
+      />
+
+      {/* Period Progress Wizard Modal */}
+      <PeriodProgressModal
+        isOpen={showPeriodModal}
+        onClose={() => setShowPeriodModal(false)}
       />
     </div>
   );

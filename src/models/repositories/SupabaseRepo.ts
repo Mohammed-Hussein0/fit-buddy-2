@@ -1,8 +1,8 @@
 import { createClient, Session, User } from '@supabase/supabase-js';
 import { UserProfile } from '../types/User';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qijerfynrurfquhpehno.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_pJKMBcVjQKAB8yNq5QYStA_UruCBOYG';
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || 'https://qijerfynrurfquhpehno.supabase.co';
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_pJKMBcVjQKAB8yNq5QYStA_UruCBOYG';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -13,12 +13,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 export const defaultProfile: UserProfile = {
-  height: '175',
-  currentWeight: '78.5',
-  goalWeight: '75',
-  nutrition: '2400',
+  height: '',
+  currentWeight: '',
+  goalWeight: '',
+  nutrition: '',
   stepGoal: '8000',
-  age: '25',
+  age: '',
   gender: 'Male',
   avatarUrl: '',
 };

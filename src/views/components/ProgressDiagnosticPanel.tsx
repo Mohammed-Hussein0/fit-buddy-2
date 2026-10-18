@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card } from './ui';
 import {
   TimeFrame,
@@ -7,7 +7,9 @@ import {
 } from '../../models/services/ProgressDiagnosticEngine';
 import { usePRStore } from '../../models/repositories/PRStore';
 import { useMeasurementStore } from '../../models/repositories/MeasurementStore';
+import { useWorkoutStore } from '../../models/repositories/WorkoutStore';
 import { useProfileController } from '../../controllers/useProfileController';
+import { apiClient } from '../../models/services/ApiClient';
 import { AdaptationCurveChart } from './AdaptationCurveChart';
 import {
   Activity,
@@ -23,32 +25,86 @@ import {
   X,
   AlertCircle,
   CheckCircle2,
+  AlertTriangle,
+  Ruler,
+  Calendar,
 } from 'lucide-react';
+import { PeriodProgressModal } from './PeriodProgressModal';
 
 export function ProgressDiagnosticPanel() {
   const { profile } = useProfileController();
   const personalRecords = usePRStore((s) => s.personalRecords);
   const measurements = useMeasurementStore((s) => s.measurements);
+  const workoutHistory = useWorkoutStore((s) => s.workoutHistory);
 
   const [timeframe, setTimeframe] = useState<TimeFrame>('6m');
-  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('Novice');
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>(() => {
+    const raw = (profile.experienceLevel || '').toLowerCase();
+    if (raw === 'intermediate') return 'Intermediate';
+    if (raw === 'advanced') return 'Advanced';
+    if (raw === 'elite') return 'Elite';
+    return 'Novice';
+  });
+
+  useEffect(() => {
+    if (profile.experienceLevel) {
+      const raw = profile.experienceLevel.toLowerCase();
+      if (raw === 'intermediate') setExperienceLevel('Intermediate');
+      else if (raw === 'advanced') setExperienceLevel('Advanced');
+      else if (raw === 'elite') setExperienceLevel('Elite');
+      else setExperienceLevel('Novice');
+    }
+  }, [profile.experienceLevel]);
   const [showMethodologyModal, setShowMethodologyModal] = useState<boolean>(false);
+  const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
+  const [weightLogs, setWeightLogs] = useState<{ date: string; weight: number }[]>([]);
+
+  useEffect(() => {
+    const fetchLogs = () => {
+      apiClient
+        .getWeightLogs(60)
+        .then((logs) => {
+          if (logs && logs.length > 0) {
+            setWeightLogs(logs);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchLogs();
+    window.addEventListener('fitbuddy-profile-updated', fetchLogs);
+    return () => window.removeEventListener('fitbuddy-profile-updated', fetchLogs);
+  }, []);
 
   const ageNum = parseInt(profile.age, 10) || 25;
-  const currentWeightNum = parseFloat(profile.currentWeight) || 78.5;
+  const currentWeightNum = parseFloat(profile.currentWeight) || 0;
   const gender = profile.gender || 'Male';
+
+  const baselineBodyweightKg = useMemo(() => {
+    if (!weightLogs || weightLogs.length === 0) return currentWeightNum;
+    const sorted = [...weightLogs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const days = timeframe === 'lifetime' ? 999999 : timeframe === '1y' ? 365 : timeframe === '6m' ? 180 : timeframe === '3m' ? 90 : 30;
+    const cutoffMs = Date.now() - days * 24 * 60 * 60 * 1000;
+
+    const eligible = sorted.filter((l) => new Date(l.date).getTime() >= cutoffMs);
+    if (eligible.length > 0) {
+      return eligible[0].weight;
+    }
+    return sorted[0].weight;
+  }, [weightLogs, timeframe, currentWeightNum]);
 
   const diagnostic = useMemo(() => {
     return evaluateUserProgress({
       gender,
       age: ageNum,
       bodyweightKg: currentWeightNum,
+      baselineBodyweightKg,
       experienceLevel,
       timeframe,
       personalRecords,
       measurements,
+      workoutHistory,
     });
-  }, [gender, ageNum, currentWeightNum, experienceLevel, timeframe, personalRecords, measurements]);
+  }, [gender, ageNum, currentWeightNum, baselineBodyweightKg, experienceLevel, timeframe, personalRecords, measurements, workoutHistory]);
 
   const bwPow = Math.pow(currentWeightNum, 0.67).toFixed(2);
 
@@ -71,14 +127,25 @@ export function ProgressDiagnosticPanel() {
             </div>
           </div>
 
-          {/* How This Works: Opens the Scientific Methodology Popup Modal */}
-          <button
-            onClick={() => setShowMethodologyModal(true)}
-            className="flex items-center gap-2.5 px-4 py-2.5 bg-[#141416] hover:bg-[#1a1a1d] text-white border border-[#27272a] hover:border-[#dc2626] text-xs font-mono-stat font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm flex-shrink-0 self-start xl:self-center"
-          >
-            <HelpCircle size={15} className="text-[#dc2626]" />
-            <span>How it works</span>
-          </button>
+          <div className="flex items-center gap-2.5 flex-wrap self-start xl:self-center">
+            {/* Assess Progress Over Period Modal Trigger */}
+            <button
+              onClick={() => setShowPeriodModal(true)}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white border border-[#dc2626] text-xs font-mono-stat font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm flex-shrink-0"
+            >
+              <Calendar size={15} />
+              <span>Assess Custom Period</span>
+            </button>
+
+            {/* How This Works: Opens the Scientific Methodology Popup Modal */}
+            <button
+              onClick={() => setShowMethodologyModal(true)}
+              className="flex items-center gap-2.5 px-4 py-2.5 bg-[#141416] hover:bg-[#1a1a1d] text-white border border-[#27272a] hover:border-[#dc2626] text-xs font-mono-stat font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm flex-shrink-0"
+            >
+              <HelpCircle size={15} className="text-[#dc2626]" />
+              <span>How it works</span>
+            </button>
+          </div>
         </div>
 
         <p className="text-xs sm:text-sm text-neutral-500 pl-0 sm:pl-[60px]">
@@ -199,17 +266,21 @@ export function ProgressDiagnosticPanel() {
           <div className="mt-4 p-4 sm:p-5 bg-[#0d0d0f] border-l-2 border-l-[#dc2626] border-y border-r border-[#262626] text-xs font-mono-stat space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
               <span className="text-[11px] font-bold text-white uppercase tracking-wider">
-                Your expected progress target
+                Target Goal for This Period
               </span>
               <span className="text-[11px] text-neutral-500">
-                {diagnostic.baseGainRate}% base × {diagnostic.genderModifier.toFixed(2)} (sex) × {diagnostic.ageModifier.toFixed(2)} (age) × {diagnostic.experienceModifier.toFixed(2)} (experience)
+                {timeframe === 'lifetime'
+                  ? 'Standardized Lifetime Biological Ceiling (100.0%)'
+                  : `${diagnostic.baseGainRate}% base × ${diagnostic.genderModifier.toFixed(2)} (sex) × ${diagnostic.ageModifier.toFixed(2)} (age) × ${diagnostic.experienceModifier.toFixed(2)} (experience)`}
               </span>
             </div>
             <p className="text-white font-black text-sm sm:text-base">
-              = <span className="text-[#dc2626] font-black">+{diagnostic.expectedGainRate}%</span> over {diagnostic.timeframeLabel}
+              Target to reach: <span className="text-[#dc2626] font-black">+{diagnostic.expectedGainRate}%</span> over {diagnostic.timeframeLabel}
             </p>
             <p className="text-xs text-neutral-500 leading-relaxed font-sans">
-              More experienced lifters naturally make progress in smaller, steady steps because they are closer to their natural potential — so expectations are adjusted accordingly.
+              {timeframe === 'lifetime'
+                ? 'When viewing Lifetime potential, 100% is the universal expected growth ceiling across all experience levels (beginner, intermediate, advanced, and elite).'
+                : 'This is the benchmark growth ceiling to aim for over this period based on your profile, not your current progress.'}
             </p>
           </div>
         </div>
@@ -217,6 +288,35 @@ export function ProgressDiagnosticPanel() {
 
       {/* ─── OVERVIEW & PROGRESSION DASHBOARD ─────────────────────────── */}
       <div className="space-y-8 sm:space-y-10">
+          {/* Missing Measurements Advisory Banner */}
+          {!diagnostic.hasMeasurements && (
+            <div className="p-4 sm:p-5 bg-[#17140a] border-l-4 border-l-[#facc15] border-y border-r border-[#3a3212] font-mono-stat space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-[#facc15] flex-shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
+                    Partial Progression Assessment • Awaiting Body Measurements
+                  </span>
+                </div>
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/30">
+                  Performance-Weighted Approximation
+                </span>
+              </div>
+              <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                Because you haven't added your body measurements (chest, arms, waist, thighs), your physique progress isn't sufficiently or accurately described — changes in true muscle size cannot be separated from body fat or water weight without circumferences.
+              </p>
+              <div className="p-3 bg-[#0d0d0f] border border-[#27272a] text-[11px] text-neutral-400 space-y-1">
+                <div className="text-white font-bold flex items-center gap-1.5">
+                  <Sliders size={12} className="text-[#ef4444]" />
+                  <span>Compensatory Weighting Active:</span>
+                </div>
+                <p className="font-sans text-neutral-400 text-xs leading-relaxed">
+                  We have increased the weight of your active workout metrics (<span className="text-white font-bold">Strength: 40%</span>, <span className="text-white font-bold">Volume: 33%</span>, <span className="text-white font-bold">Pace: 27%</span>) so we can still judge your progression from gym performance, but it won't be as accurate as when you record your physical measurements in your Profile.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Main Comparison Scoreboard */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
             {/* Actual Gain Rate */}
@@ -226,17 +326,33 @@ export function ProgressDiagnosticPanel() {
                   <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
                     Your progress
                   </span>
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30 font-mono-stat">
-                    Actual
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 font-mono-stat ${
+                    diagnostic.totalSessionsLogged === 0
+                      ? 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                      : 'bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/30'
+                  }`}>
+                    {diagnostic.totalSessionsLogged === 0 ? 'Not Started' : 'Actual'}
                   </span>
                 </div>
                 <div className="font-mono-stat">
                   <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                    +{diagnostic.actualGainRate}%
+                    {diagnostic.totalSessionsLogged === 0 ? '0%' : `+${diagnostic.actualGainRate}%`}
                   </span>
-                  <p className="text-xs text-neutral-500 mt-1.5">
-                    Strength score gain: <span className="text-white font-bold">+{diagnostic.actualDeltaAS} pts</span>
+                  <p className="text-xs text-neutral-400 mt-1.5 font-bold">
+                    {diagnostic.totalSessionsLogged === 0 ? 'No workouts logged yet' : diagnostic.loggedDurationLabel}
                   </p>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    {diagnostic.totalSessionsLogged === 0 ? (
+                      <span className="text-neutral-500">Log your first workout to measure growth</span>
+                    ) : (
+                      <>Strength score gain: <span className="text-white font-bold">+{diagnostic.actualDeltaAS} pts</span></>
+                    )}
+                  </p>
+                  {!diagnostic.hasMeasurements && diagnostic.totalSessionsLogged > 0 && (
+                    <span className="text-[10px] text-amber-400/90 font-mono-stat mt-1 block">
+                      ⚠️ Performance estimate (No measurements)
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="mt-4 w-full bg-[#18181b] h-2.5 border border-[#27272a] overflow-hidden">
@@ -252,10 +368,10 @@ export function ProgressDiagnosticPanel() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                    Expected target
+                    Projected Goal Target
                   </span>
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-[#facc15]/10 text-[#facc15] border border-[#facc15]/30 font-mono-stat">
-                    Target
+                    Goal Ceiling
                   </span>
                 </div>
                 <div className="font-mono-stat">
@@ -263,7 +379,9 @@ export function ProgressDiagnosticPanel() {
                     +{diagnostic.expectedGainRate}%
                   </span>
                   <p className="text-xs text-neutral-500 mt-1.5">
-                    Based on: <span className="text-white font-bold">{gender}, {ageNum}y, {experienceLevel}</span>
+                    {timeframe === 'lifetime'
+                      ? 'Lifetime Expected Growth (100% for all levels)'
+                      : `Target to achieve over ${diagnostic.timeframeLabel} (${gender}, ${ageNum}y, ${experienceLevel})`}
                   </p>
                 </div>
               </div>
@@ -279,22 +397,45 @@ export function ProgressDiagnosticPanel() {
                   Adjustments applied
                 </span>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Sex:</span>
-                    <span className="text-white font-bold">{gender} (×{diagnostic.genderModifier.toFixed(2)})</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Age:</span>
-                    <span className="text-white font-bold">{ageNum} yrs (×{diagnostic.ageModifier.toFixed(2)})</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Experience:</span>
-                    <span className="text-white font-bold">{experienceLevel} (×{diagnostic.experienceModifier.toFixed(2)})</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-[#262626]">
-                    <span className="text-neutral-500">Weight factor:</span>
-                    <span className="text-[#dc2626] font-bold">{currentWeightNum}kg scale factor: {bwPow}</span>
-                  </div>
+                  {timeframe === 'lifetime' ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Ceiling Mode:</span>
+                        <span className="text-[#facc15] font-bold">100% Lifetime Expected Growth</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Demographic:</span>
+                        <span className="text-white font-bold">{gender}, {ageNum} yrs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Experience:</span>
+                        <span className="text-white font-bold">{experienceLevel} (100% target)</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-[#262626]">
+                        <span className="text-neutral-500">History Logged:</span>
+                        <span className="text-[#22c55e] font-bold">{diagnostic.loggedDurationLabel}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Sex:</span>
+                        <span className="text-white font-bold">{gender} (×{diagnostic.genderModifier.toFixed(2)})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Age:</span>
+                        <span className="text-white font-bold">{ageNum} yrs (×{diagnostic.ageModifier.toFixed(2)})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Experience:</span>
+                        <span className="text-white font-bold">{experienceLevel} (×{diagnostic.experienceModifier.toFixed(2)})</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-[#262626]">
+                        <span className="text-neutral-500">Weight factor:</span>
+                        <span className="text-[#dc2626] font-bold">{currentWeightNum}kg scale factor: {bwPow}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -314,7 +455,7 @@ export function ProgressDiagnosticPanel() {
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm text-neutral-400 font-mono-stat mt-1.5">
-                  Yellow Area = Target progress for your level ({experienceLevel}, {gender}, {ageNum} yrs). Green Line = Your actual progress.
+                  Yellow Area = Target progress for your level ({experienceLevel}, {gender}, {ageNum} yrs). Green Line = Your actual progress ({diagnostic.loggedDurationLabel}).
                 </p>
               </div>
 
@@ -331,34 +472,54 @@ export function ProgressDiagnosticPanel() {
             </div>
 
             {/* Chart Canvas with Expanded Height */}
-            <AdaptationCurveChart data={diagnostic.curveData} activeTimeframe={timeframe} height={320} />
+            <AdaptationCurveChart
+              data={diagnostic.curveData}
+              activeTimeframe={timeframe}
+              loggedDurationLabel={diagnostic.loggedDurationLabel}
+              height={320}
+            />
 
             {/* 5 Horizon Clickable Milestone Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 pt-3 border-t border-[#262626] text-center font-mono-stat">
-              {diagnostic.curveData.map((pt) => {
-                const isSelected = pt.timeframe === timeframe;
-                const isOptimal = pt.actualRate >= pt.expectedRate;
-                return (
-                  <button
-                    key={pt.timeframe}
-                    onClick={() => setTimeframe(pt.timeframe)}
-                    className={`p-3.5 border cursor-pointer text-left transition-all ${
-                      isSelected
-                        ? 'bg-[#1e1e24] border-[#dc2626] shadow-md'
-                        : 'bg-[#161618] border-[#27272a] hover:border-neutral-500'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[10px] font-black mb-1.5">
-                      <span className={isSelected ? 'text-[#ef4444]' : 'text-neutral-400'}>{pt.shortLabel}</span>
-                      <span className={isOptimal ? 'text-[#22c55e]' : 'text-[#facc15]'}>
-                        {isOptimal ? 'ON TRACK' : 'BEHIND'}
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-black text-[#facc15]">Target: +{pt.expectedRate}%</p>
-                    <p className="text-xs sm:text-sm font-black text-[#22c55e]">Actual: +{pt.actualRate}%</p>
-                  </button>
-                );
-              })}
+              {diagnostic.curveData
+                .filter((pt) => pt.timeframe)
+                .map((pt) => {
+                  const isSelected = pt.timeframe === timeframe;
+                  const hasActual = pt.actualRate !== null && pt.actualRate !== undefined;
+                  const isOptimal = hasActual && pt.actualRate! >= pt.expectedRate;
+                  return (
+                    <button
+                      key={pt.timeframe}
+                      onClick={() => setTimeframe(pt.timeframe!)}
+                      className={`p-3.5 border cursor-pointer text-left transition-all ${
+                        isSelected
+                          ? 'bg-[#1e1e24] border-[#dc2626] shadow-md'
+                          : 'bg-[#161618] border-[#27272a] hover:border-neutral-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-black mb-1.5">
+                        <span className={isSelected ? 'text-[#ef4444]' : 'text-neutral-400'}>
+                          {pt.shortLabel}
+                        </span>
+                        <span
+                          className={
+                            !hasActual
+                              ? 'text-neutral-500'
+                              : isOptimal
+                              ? 'text-[#22c55e]'
+                              : 'text-[#facc15]'
+                          }
+                        >
+                          {!hasActual ? 'FUTURE' : isOptimal ? 'ON TRACK' : 'BEHIND'}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm font-black text-[#facc15]">Target: +{pt.expectedRate}%</p>
+                      <p className="text-xs sm:text-sm font-black text-[#22c55e]">
+                        Actual: {hasActual ? `+${pt.actualRate}%` : '—'}
+                      </p>
+                    </button>
+                  );
+                })}
             </div>
           </div>
 
@@ -433,10 +594,14 @@ export function ProgressDiagnosticPanel() {
               </div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="text-[11px] font-black uppercase px-2.5 py-1 bg-[#18181b] border border-[#27272a] text-white font-mono-stat">
-                  Overall: <span className="text-[#dc2626]">{diagnostic.compositeWeightedScore}%</span>
+                  Diagnostic Score: <span className="text-[#dc2626]">{diagnostic.compositeWeightedScore}/100</span>
                 </span>
-                <span className="text-[10px] text-neutral-600 font-mono-stat">
-                  (30% strength · 25% volume · 20% pace · 25% body shape)
+                <span className="text-[10px] text-neutral-500 font-mono-stat">
+                  {diagnostic.compositeWeightedScore === 0 && diagnostic.totalSessionsLogged === 0
+                    ? '(Awaiting first workout or measurement)'
+                    : diagnostic.hasMeasurements
+                    ? '(30% strength · 25% volume · 20% pace · 25% body shape)'
+                    : '(Adjusted: 40% strength · 33% volume · 27% pace • 0% body shape)'}
                 </span>
               </div>
             </div>
@@ -501,7 +666,11 @@ export function ProgressDiagnosticPanel() {
                         <span className="text-neutral-400 font-bold uppercase">WEIGHT IN OVERALL SCORE:</span>
                         <span
                           className={`px-2 py-0.5 font-black uppercase border ${
-                            pillar.isSkeletallyConstrained
+                            pillar.id === 'recomp' && !diagnostic.hasMeasurements
+                              ? 'bg-neutral-900 text-neutral-500 border-neutral-800'
+                              : !diagnostic.hasMeasurements && pillar.id !== 'recomp'
+                              ? 'bg-amber-950/40 text-[#facc15] border-amber-800/40'
+                              : pillar.isSkeletallyConstrained
                               ? 'bg-blue-950/40 text-[#60a5fa] border-blue-800/40'
                               : 'bg-[#18181b] text-[#facc15] border-[#27272a]'
                           }`}
@@ -786,6 +955,12 @@ export function ProgressDiagnosticPanel() {
           </div>
         </div>
       )}
+
+      {/* ─── Period Progress Assessment Wizard Modal ──────────────────────── */}
+      <PeriodProgressModal
+        isOpen={showPeriodModal}
+        onClose={() => setShowPeriodModal(false)}
+      />
     </Card>
   );
 }

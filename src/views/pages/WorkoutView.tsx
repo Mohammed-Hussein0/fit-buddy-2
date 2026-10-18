@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, Button } from '../components/ui';
 import { ExercisePickerModal } from '../components/ExercisePickerModal';
 import { RoutineManagerModal } from '../components/RoutineManagerModal';
@@ -6,8 +6,10 @@ import { WorkoutCompletionModal } from '../components/WorkoutCompletionModal';
 import { useWorkoutController } from '../../controllers/useWorkoutController';
 import { calculateEpley1RM } from '../../models/services/StrengthEngine';
 import { EXERCISE_LABELS, EXERCISE_IMAGES, normalizeExerciseKey } from '../../models/types/Exercise';
+import { getSessionMusclesHit } from '../../models/types/Muscles';
 import { MuscleDiagram } from '../components/MuscleDiagram';
-import { Plus, Trash2, Trophy, Check, Layers, ChevronRight, CalendarDays, History, AlertCircle } from 'lucide-react';
+import { preventMinusKeyDown, sanitizePositiveNumber } from '../../utils/numberInputUtils';
+import { Plus, Trash2, Trophy, Check, Layers, ChevronRight, CalendarDays, History, AlertCircle, Target } from 'lucide-react';
 
 // Day-of-week helpers (1=Mon…7=Sun)
 const DOW_SHORT = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -22,6 +24,7 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
     activeProgram,
     activeProgramId,
     activeWorkouts,
+    activeExerciseMap,
     todayDow,
     weekCalendarDays,
     selectedWorkoutId,
@@ -55,6 +58,9 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [routineModalOpen, setRoutineModalOpen] = useState(false);
   const lastSessionMap = new Map(lastSession.map((e) => [e.name, e]));
+
+  // Targeted muscles computed dynamically for the active workout session
+  const activeMuscles = useMemo(() => getSessionMusclesHit(workingExercises), [workingExercises]);
 
   // Is there a workout scheduled for today?
   const todayCalendarItem = weekCalendarDays.find((d) => d.isToday);
@@ -171,6 +177,18 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
                       }`}>
                         {calDay.workout!.title}
                       </p>
+                      {(() => {
+                        const dayExercises = activeExerciseMap[calDay.workout!.id] || [];
+                        const dayMuscles = getSessionMusclesHit(dayExercises);
+                        if (dayMuscles.displayMuscles.length === 0) return null;
+                        return (
+                          <p className={`text-[9px] font-mono-stat truncate mt-0.5 ${
+                            isSelected ? 'text-white/80' : isToday ? 'text-red-300 font-semibold' : 'text-neutral-400'
+                          }`}>
+                            {dayMuscles.displayMuscles.join(' · ')}
+                          </p>
+                        );
+                      })()}
                       {calDay.isCompleted && (
                         <span className={`inline-flex items-center gap-0.5 text-[8px] font-black uppercase mt-1 px-1 py-0.2 ${
                           isSelected ? 'bg-black/40 text-emerald-300' : 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
@@ -213,6 +231,28 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
             </h3>
             {selectedWorkout?.note && (
               <p className="text-xs text-neutral-500 mt-0.5">{selectedWorkout.note}</p>
+            )}
+
+            {/* Targeted Muscles Badges for Active Workout Session */}
+            {activeMuscles.displayMuscles.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                <span className="text-[10px] font-black uppercase text-neutral-400 font-mono-stat tracking-wider flex items-center gap-1">
+                  <Target size={11} className="text-[#dc2626]" /> Targeted:
+                </span>
+                {activeMuscles.displayMuscles.map((muscle) => (
+                  <span
+                    key={muscle}
+                    className="px-2 py-0.5 text-[10px] font-mono-stat font-bold uppercase tracking-wide bg-[#1c1c20] border border-[#2e2e34] text-neutral-200 rounded"
+                  >
+                    {muscle}
+                  </span>
+                ))}
+                {activeMuscles.detailedTargets.length > 0 && (
+                  <span className="text-[10px] text-neutral-500 font-mono-stat ml-1 hidden sm:inline">
+                    ({activeMuscles.detailedTargets.slice(0, 4).join(', ')})
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -394,9 +434,11 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
                             <td className="py-2 px-3 border-r border-[#222226]">
                               <input
                                 type="text"
+                                inputMode="decimal"
                                 placeholder={ghostSet?.weight || '0'}
                                 value={set.weight}
-                                onChange={(e) => updateSet(ex.id, set.id, 'weight', e.target.value)}
+                                onKeyDown={preventMinusKeyDown}
+                                onChange={(e) => updateSet(ex.id, set.id, 'weight', sanitizePositiveNumber(e.target.value, true))}
                                 className="w-full bg-black border border-[#2a2a2f] px-3 py-1.5 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-[#dc2626] rounded-none font-mono-stat"
                               />
                             </td>
@@ -405,9 +447,11 @@ export function WorkoutView({ onNavigateTab }: WorkoutViewProps = {}) {
                             <td className="py-2 px-3 border-r border-[#222226]">
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 placeholder={ghostSet?.reps || '0'}
                                 value={set.reps}
-                                onChange={(e) => updateSet(ex.id, set.id, 'reps', e.target.value)}
+                                onKeyDown={preventMinusKeyDown}
+                                onChange={(e) => updateSet(ex.id, set.id, 'reps', sanitizePositiveNumber(e.target.value, false))}
                                 className="w-full bg-black border border-[#2a2a2f] px-3 py-1.5 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-[#dc2626] rounded-none font-mono-stat"
                               />
                             </td>

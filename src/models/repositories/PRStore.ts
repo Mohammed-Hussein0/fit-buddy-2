@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { PREntry, PRRecord } from '../types/PersonalRecord';
 import { calculateEpley1RM } from '../services/StrengthEngine';
 import { normalizeExerciseKey } from '../types/Exercise';
+import { apiClient } from '../services/ApiClient';
 
 interface PRStoreState {
   personalRecords: PRRecord;
@@ -14,17 +15,11 @@ interface PRStoreState {
   ) => { isNewPR: boolean; calculated1RM: number };
   saveNewPRs: (newPRs: Partial<PRRecord>) => void;
   set1RM: (exerciseId: string, oneRM: number, rpe?: number) => void;
+  syncFromBackend: () => Promise<void>;
   clearAllPRs: () => void;
 }
 
-const INITIAL_PRS: PRRecord = {
-  barbell_bench_press: { oneRM: 102.1, rpe: 8 },
-  deadlift: { oneRM: 157.5, rpe: 8 },
-  barbell_squat: { oneRM: 128.3, rpe: 8 },
-  overhead_press: { oneRM: 72.9, rpe: 8 },
-  barbell_row: { oneRM: 99.0, rpe: 8 },
-  romanian_deadlift: { oneRM: 126.7, rpe: 8 },
-};
+const INITIAL_PRS: PRRecord = {};
 
 export const usePRStore = create<PRStoreState>()(
   persist(
@@ -77,6 +72,29 @@ export const usePRStore = create<PRStoreState>()(
           }
           return { personalRecords: merged };
         });
+      },
+
+      syncFromBackend: async () => {
+        try {
+          const serverPRs = await apiClient.getPersonalRecords();
+          if (serverPRs && serverPRs.length > 0) {
+            set((state) => {
+              const merged = { ...state.personalRecords };
+              for (const pr of serverPRs) {
+                const key = normalizeExerciseKey(pr.exercise_key || pr.exercise_name);
+                if (pr.best_1rm && pr.best_1rm > 0) {
+                  merged[key] = {
+                    oneRM: pr.best_1rm,
+                    rpe: 8,
+                  };
+                }
+              }
+              return { personalRecords: merged };
+            });
+          }
+        } catch (err: any) {
+          console.warn('[PRStore] Cloud PR sync skipped:', err?.message || err);
+        }
       },
 
       clearAllPRs: () => set({ personalRecords: {} }),
